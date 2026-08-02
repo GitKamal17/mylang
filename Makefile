@@ -16,6 +16,11 @@
 
 CC      ?= cc
 CFLAGS  ?= -std=c99 -Wall -Wextra -O2
+# Strict -std=c99 defines __STRICT_ANSI__, which hides POSIX declarations on
+# glibc (Linux): pid_t, getpid, mkdir, stat, opendir, readdir, ... would all
+# become unknown/implicit. Request POSIX.1-2008 explicitly so the same source
+# compiles cleanly on macOS (clang) and Linux (gcc).
+CFLAGS  += -D_POSIX_C_SOURCE=200809L
 INCLUDE  = -I src
 LDLIBS   = -lm
 DEPFLAGS = -MMD -MP
