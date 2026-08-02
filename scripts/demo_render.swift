@@ -111,11 +111,31 @@ if windowOn {
 NSGraphicsContext.restoreGraphicsState()
 
 // ---- encode PNG -------------------------------------------------------------
+// We draw through a flipped NSGraphicsContext so AppKit text renders with a
+// top-left origin, but the underlying raw CGContext stores pixels bottom-up.
+// cg.makeImage() therefore yields a vertically flipped image — the bug that
+// made the demo GIF render upside down. Draw it back into a fresh context
+// with a vertical flip to restore correct orientation before encoding.
 guard let cgImage = cg.makeImage() else {
     FileHandle.standardError.write(Data("error: could not make CGImage\n".utf8))
     exit(1)
 }
-let rep = NSBitmapImageRep(cgImage: cgImage)
+guard let flipCtx = CGContext(data: nil,
+                              width: W, height: H,
+                              bitsPerComponent: 8,
+                              bytesPerRow: 0,
+                              space: CGColorSpaceCreateDeviceRGB(),
+                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+else { exit(1) }
+flipCtx.translateBy(x: 0, y: Hf)
+flipCtx.scaleBy(x: 1, y: -1)
+flipCtx.draw(cgImage, in: CGRect(x: 0, y: 0, width: Wf, height: Hf))
+guard let flipped = flipCtx.makeImage() else {
+    FileHandle.standardError.write(Data("error: could not flip CGImage\n".utf8))
+    exit(1)
+}
+
+let rep = NSBitmapImageRep(cgImage: flipped)
 guard let png = rep.representation(using: .png, properties: [:]) else {
     FileHandle.standardError.write(Data("error: could not encode PNG\n".utf8))
     exit(1)
