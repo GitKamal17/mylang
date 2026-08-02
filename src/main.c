@@ -16,7 +16,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>  /* getpid */
+#include <unistd.h>     /* getpid */
+#include <sys/types.h>  /* pid_t */
 #include <sys/stat.h>   /* mkdir, stat */
 #include <dirent.h>     /* opendir, readdir */
 
