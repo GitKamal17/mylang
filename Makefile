@@ -3,6 +3,8 @@
 # Targets:
 #   make            Build the `mylang` CLI
 #   make test       Build and run all test suites
+#   make sanitize   Rebuild + run everything under ASan/UBSan
+#   make analyze    Run clang's static analyzer over the whole toolchain
 #   make install    Copy `mylang` to /usr/local/bin (override PREFIX)
 #   make uninstall  Remove the installed binary
 #   make clean      Remove build artifacts
@@ -54,7 +56,7 @@ TEST_LEXER_BIN    = test_lexer
 TEST_PARSER_BIN   = test_parser
 TEST_CODEGEN_BIN  = test_codegen
 
-.PHONY: all test install uninstall clean demo-gif
+.PHONY: all test install uninstall clean demo-gif sanitize analyze
 
 all: mylang
 
@@ -78,6 +80,52 @@ $(TEST_PARSER_BIN): tests/test_parser.c src/parser.c src/lexer.c src/parser.h sr
 $(TEST_CODEGEN_BIN): tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c src/codegen.h src/parser.h src/lexer.h src/ast.h
 	$(CC) $(CFLAGS) $(INCLUDE) tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c -o $@ $(LDLIBS)
 
+# ---------------------------------------------------------------------------
+# Security tooling
+# ---------------------------------------------------------------------------
+# `make sanitize` — rebuild the toolchain and test suites under
+# AddressSanitizer + UBSan, then run everything (tests + real transpilations)
+# under the sanitizers.
+SANFLAGS = -std=c99 -Wall -Wextra -g -O1 -fsanitize=address,undefined \
+           -fno-omit-frame-pointer -D_POSIX_C_SOURCE=200809L
+
+sanitize: $(TEST_LEXER_BIN)_san $(TEST_PARSER_BIN)_san $(TEST_CODEGEN_BIN)_san mylang_san
+	./$(TEST_LEXER_BIN)_san
+	./$(TEST_PARSER_BIN)_san
+	./$(TEST_CODEGEN_BIN)_san
+	./mylang_san emit examples/app.vibes > /dev/null
+	./mylang_san emit examples/game.vibes > /dev/null
+	./mylang_san debug examples/game.vibes > /dev/null
+	@echo "Sanitizer run: all clean (ASan + UBSan)"
+
+$(TEST_LEXER_BIN)_san: tests/test_lexer.c src/lexer.c src/lexer.h
+	$(CC) $(SANFLAGS) $(INCLUDE) tests/test_lexer.c src/lexer.c -o $@ $(LDLIBS)
+
+$(TEST_PARSER_BIN)_san: tests/test_parser.c src/parser.c src/lexer.c src/parser.h src/lexer.h src/ast.h
+	$(CC) $(SANFLAGS) $(INCLUDE) tests/test_parser.c src/parser.c src/lexer.c -o $@ $(LDLIBS)
+
+$(TEST_CODEGEN_BIN)_san: tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c src/codegen.h src/parser.h src/lexer.h src/ast.h
+	$(CC) $(SANFLAGS) $(INCLUDE) tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c -o $@ $(LDLIBS)
+
+mylang_san: $(SRCS)
+	$(CC) $(SANFLAGS) $(INCLUDE) $(SRCS) -o $@ $(LDLIBS)
+
+# `make analyze` — run clang's static analyzer over every source file.
+# Fails if the analyzer emits any warning (clang --analyze exits 0 on
+# findings, so we grep its output explicitly).
+analyze:
+	@for f in $(SRCS); do \
+	  echo "== $$f =="; \
+	  OUT="$$(clang --analyze -Xanalyzer -analyzer-output=text $(INCLUDE) \
+	        -D_POSIX_C_SOURCE=200809L $$f 2>&1)"; \
+	  RC=$$?; \
+	  printf '%s\n' "$$OUT"; \
+	  if [ $$RC -ne 0 ] || printf '%s\n' "$$OUT" | grep -q 'warning:'; then \
+	    echo "analyzer findings in $$f"; exit 1; \
+	  fi; \
+	done
+	@echo "Static analysis: no findings"
+
 install: mylang
 	install -d $(BINDIR)
 	install -m 0755 mylang $(BINDIR)/mylang
@@ -89,6 +137,7 @@ uninstall:
 clean:
 	rm -f mylang $(OBJS) $(DEPS) $(TEST_LEXER_BIN) $(TEST_PARSER_BIN) $(TEST_CODEGEN_BIN) \
 	      $(TEST_LEXER_BIN).d $(TEST_PARSER_BIN).d $(TEST_CODEGEN_BIN).d \
+	      mylang_san $(TEST_LEXER_BIN)_san $(TEST_PARSER_BIN)_san $(TEST_CODEGEN_BIN)_san \
 	      src/*.o.tmp
 
 demo-gif: mylang

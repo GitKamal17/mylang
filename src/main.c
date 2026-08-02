@@ -13,12 +13,17 @@
 #include "parser.h"
 #include "pipeline.h"
 
+#include <ctype.h>      /* isxdigit */
+#include <errno.h>      /* errno, EINTR */
+#include <stdint.h>     /* uint8_t, uint32_t */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>     /* getpid */
+#include <strings.h>    /* strcasecmp */
+#include <unistd.h>     /* fork, close */
 #include <sys/types.h>  /* pid_t */
 #include <sys/stat.h>   /* mkdir, stat */
+#include <sys/wait.h>   /* waitpid, WIFEXITED, WIFSIGNALED */
 #include <dirent.h>     /* opendir, readdir */
 
 /* Version string — injected by the Makefile (-DMYLANG_VERSION="...").
@@ -26,6 +31,9 @@
 #ifndef MYLANG_VERSION
 #define MYLANG_VERSION "dev"
 #endif
+
+/* read_file is defined below; declared early because cmd_install uses it. */
+static char *read_file(const char *path, long *out_len);
 
 /* ------------------------------------------------------------------ *
  * Help / usage                                                       *
@@ -43,7 +51,8 @@ static void print_usage(void)
     printf("  --explain emit   <file>    Show annotated C code with source-line comments\n");
     printf("  --explain tokens <file>    Show each token with plain-English explanations\n");
     printf("  --version                  Print the mylang version and exit\n");
-    printf("  install <pkg>    Install a package (std, a URL, or github:owner/repo/main/file.vibes)\n");
+    printf("  install <pkg>    Install a package (std, an HTTPS URL, or github:owner/repo/main/file.vibes)\n");
+    printf("                   Append #sha256=<hex> to a URL to verify its checksum\n");
     printf("  list             List installed packages (~/.mylang/packages)\n");
 }
 
@@ -96,11 +105,171 @@ static const char *STD_MATH_VIBES =
     "    return a + (b - a) * t\n"
     "}\n";
 
+/* ------------------------------------------------------------------ *
+ * Process execution — fork + execvp, never the shell.                *
+ *                                                                     *
+ * Arguments are passed verbatim, so filenames or URLs containing       *
+ * shell metacharacters (quotes, backticks, $(...)) can never be        *
+ * interpreted by a shell. This is the fix for the old system() sites.  *
+ * ------------------------------------------------------------------ */
+static int run_argv(char *const argv[])
+{
+    pid_t pid = fork();
+    if (pid < 0) { perror("fork"); return -1; }
+
+    if (pid == 0) {
+        execvp(argv[0], argv);
+        fprintf(stderr, "error: cannot execute '%s'\n", argv[0]);
+        _exit(127);
+    }
+
+    int status;
+    for (;;) {
+        if (waitpid(pid, &status, 0) < 0) {
+            if (errno == EINTR) continue;   /* e.g. SIGINT to the group */
+            perror("waitpid");
+            return -1;
+        }
+        break;
+    }
+
+    if (WIFEXITED(status)) return WEXITSTATUS(status);
+    if (WIFSIGNALED(status)) {
+        /* Low 7 bits of the wait status carry the signal number (POSIX).
+           WIFTERMSIG is hidden under -std=c99 on macOS, so we extract it
+           manually for portability. */
+        int sig = status & 0x7f;
+        fprintf(stderr, "error: '%s' terminated by signal %d\n", argv[0], sig);
+        return 128 + sig;
+    }
+    return 1;
+}
+
+/* ------------------------------------------------------------------ *
+ * SHA-256 — self-contained implementation used to verify the          *
+ * checksum of downloaded packages.                                    *
+ * ------------------------------------------------------------------ */
+static const uint32_t SHA256_K[64] = {
+    0x428a2f98u,0x71374491u,0xb5c0fbcfu,0xe9b5dba5u,0x3956c25bu,0x59f111f1u,0x923f82a4u,0xab1c5ed5u,
+    0xd807aa98u,0x12835b01u,0x243185beu,0x550c7dc3u,0x72be5d74u,0x80deb1feu,0x9bdc06a7u,0xc19bf174u,
+    0xe49b69c1u,0xefbe4786u,0x0fc19dc6u,0x240ca1ccu,0x2de92c6fu,0x4a7484aau,0x5cb0a9dcu,0x76f988dau,
+    0x983e5152u,0xa831c66du,0xb00327c8u,0xbf597fc7u,0xc6e00bf3u,0xd5a79147u,0x06ca6351u,0x14292967u,
+    0x27b70a85u,0x2e1b2138u,0x4d2c6dfcu,0x53380d13u,0x650a7354u,0x766a0abbu,0x81c2c92eu,0x92722c85u,
+    0xa2bfe8a1u,0xa81a664bu,0xc24b8b70u,0xc76c51a3u,0xd192e819u,0xd6990624u,0xf40e3585u,0x106aa070u,
+    0x19a4c116u,0x1e376c08u,0x2748774cu,0x34b0bcb5u,0x391c0cb3u,0x4ed8aa4au,0x5b9cca4fu,0x682e6ff3u,
+    0x748f82eeu,0x78a5636fu,0x84c87814u,0x8cc70208u,0x90befffau,0xa4506cebu,0xbef9a3f7u,0xc67178f2u
+};
+
+#define SHA256_ROTR(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
+
+static void sha256_transform(uint32_t s[8], const uint8_t block[64])
+{
+    uint32_t w[64];
+    uint32_t a, b, c, d, e, f, g, h;
+    int i;
+
+    for (i = 0; i < 16; i++) {
+        w[i] = ((uint32_t)block[i * 4] << 24)
+             | ((uint32_t)block[i * 4 + 1] << 16)
+             | ((uint32_t)block[i * 4 + 2] << 8)
+             |  (uint32_t)block[i * 4 + 3];
+    }
+    for (i = 16; i < 64; i++) {
+        uint32_t s0 = SHA256_ROTR(w[i - 15], 7) ^ SHA256_ROTR(w[i - 15], 18) ^ (w[i - 15] >> 3);
+        uint32_t s1 = SHA256_ROTR(w[i - 2], 17) ^ SHA256_ROTR(w[i - 2], 19) ^ (w[i - 2] >> 10);
+        w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+    }
+
+    a = s[0]; b = s[1]; c = s[2]; d = s[3];
+    e = s[4]; f = s[5]; g = s[6]; h = s[7];
+
+    for (i = 0; i < 64; i++) {
+        uint32_t S1 = SHA256_ROTR(e, 6) ^ SHA256_ROTR(e, 11) ^ SHA256_ROTR(e, 25);
+        uint32_t ch = (e & f) ^ (~e & g);
+        uint32_t S0 = SHA256_ROTR(a, 2) ^ SHA256_ROTR(a, 13) ^ SHA256_ROTR(a, 22);
+        uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+        uint32_t t2 = S0 + maj;
+        uint32_t t1 = h + S1 + ch + SHA256_K[i] + w[i];
+        h = g; g = f; f = e; e = d + t1;
+        d = c; c = b; b = a; a = t1 + t2;
+    }
+
+    s[0] += a; s[1] += b; s[2] += c; s[3] += d;
+    s[4] += e; s[5] += f; s[6] += g; s[7] += h;
+}
+
+static void sha256(const uint8_t *msg, size_t len, uint8_t out[32])
+{
+    uint32_t s[8] = {
+        0x6a09e667u,0xbb67ae85u,0x3c6ef372u,0xa54ff53au,
+        0x510e527fu,0x9b05688cu,0x1f83d9abu,0x5be0cd19u
+    };
+    uint64_t bitlen = (uint64_t)len * 8u;
+    uint8_t block[64];
+    size_t i;
+
+    /* Process all whole 64-byte blocks */
+    size_t full = len & ~(size_t)63u;
+    for (i = 0; i < full; i += 64)
+        sha256_transform(s, msg + i);
+
+    /* Final padded block(s): append 0x80, pad to 56 mod 64, add bit length */
+    size_t rem = len - full;
+    memcpy(block, msg + full, rem);
+    block[rem] = 0x80;
+    if (rem < 56) {
+        memset(block + rem + 1, 0, 56 - (rem + 1));
+        for (i = 0; i < 8; i++)
+            block[56 + i] = (uint8_t)(bitlen >> (56 - 8 * i));
+        sha256_transform(s, block);
+    } else {
+        memset(block + rem + 1, 0, 64 - (rem + 1));
+        sha256_transform(s, block);
+        memset(block, 0, 56);
+        for (i = 0; i < 8; i++)
+            block[56 + i] = (uint8_t)(bitlen >> (56 - 8 * i));
+        sha256_transform(s, block);
+    }
+
+    for (i = 0; i < 8; i++) {
+        out[i * 4]     = (uint8_t)(s[i] >> 24);
+        out[i * 4 + 1] = (uint8_t)(s[i] >> 16);
+        out[i * 4 + 2] = (uint8_t)(s[i] >> 8);
+        out[i * 4 + 3] = (uint8_t)(s[i]);
+    }
+}
+
+static void sha256_hex(const uint8_t digest[32], char out[65])
+{
+    static const char hx[] = "0123456789abcdef";
+    int i;
+    for (i = 0; i < 32; i++) {
+        out[i * 2]     = hx[digest[i] >> 4];
+        out[i * 2 + 1] = hx[digest[i] & 0x0f];
+    }
+    out[64] = '\0';
+}
+
+/* True if s is exactly 64 lowercase/uppercase hex digits */
+static int is_hex64(const char *s)
+{
+    size_t i;
+    if (strlen(s) != 64) return 0;
+    for (i = 0; i < 64; i++)
+        if (!isxdigit((unsigned char)s[i])) return 0;
+    return 1;
+}
+
 /* mylang install <pkg>
    Supports:
      std                                        - bundled standard package
-     https://host/path/file.vibes               - any HTTP(S) URL
-     github:owner/repo/main/path/file.vibes     - GitHub raw shorthand */
+     https://host/path/file.vibes               - HTTPS package URL
+     https://host/path/file.vibes#sha256=<hex>  - pin + verify the SHA-256
+     github:owner/repo/main/path/file.vibes     - GitHub raw shorthand
+
+   Plaintext http:// URLs are refused: installed packages are code that gets
+   compiled and executed, so they must arrive over TLS (or be pinned to a
+   checksum the user provides). */
 static int cmd_install(const char *pkg)
 {
     char pkgs[1024];
@@ -118,22 +287,53 @@ static int cmd_install(const char *pkg)
         return 0;
     }
 
+    /* Strip an optional #sha256=<hex> fragment before URL handling */
+    char pkgbuf[1024];
+    int plen = snprintf(pkgbuf, sizeof pkgbuf, "%s", pkg);
+    if (plen < 0 || (size_t)plen >= sizeof pkgbuf) {
+        fprintf(stderr, "error: package URL too long\n");
+        return 1;
+    }
+    const char *expected_sha = NULL;
+    char *frag = strchr(pkgbuf, '#');
+    if (frag) {
+        if (strncmp(frag, "#sha256=", 8) != 0) {
+            fprintf(stderr, "error: unsupported URL fragment '%s' (use #sha256=<64 hex chars>)\n", frag);
+            return 1;
+        }
+        expected_sha = frag + 8;
+        if (!is_hex64(expected_sha)) {
+            fprintf(stderr, "error: malformed sha256 checksum (expected 64 hex chars)\n");
+            return 1;
+        }
+        *frag = '\0';
+    }
+
+    /* Refuse plaintext HTTP: downloaded packages become executable code. */
+    if (strncmp(pkgbuf, "http://", 7) == 0) {
+        fprintf(stderr, "error: refusing insecure plaintext 'http://' package URL\n");
+        fprintf(stderr, "  packages are code that gets compiled and executed; use https://\n");
+        fprintf(stderr, "  or pin a checksum: https://.../math.vibes#sha256=<64 hex chars>\n");
+        return 1;
+    }
+
     /* Remote package: build the download URL */
     char url[2048];
     const char *fname;
-    if (strncmp(pkg, "http://", 7) == 0 || strncmp(pkg, "https://", 8) == 0) {
-        snprintf(url, sizeof url, "%s", pkg);
+    if (strncmp(pkgbuf, "https://", 8) == 0) {
+        snprintf(url, sizeof url, "%s", pkgbuf);
         const char *slash = strrchr(url, '/');
         fname = slash ? slash + 1 : url;
-    } else if (strncmp(pkg, "github:", 7) == 0) {
+    } else if (strncmp(pkgbuf, "github:", 7) == 0) {
         /* github:owner/repo/main/path/file.vibes -> raw.githubusercontent.com */
-        snprintf(url, sizeof url, "https://raw.githubusercontent.com/%s", pkg + 7);
+        snprintf(url, sizeof url, "https://raw.githubusercontent.com/%s", pkgbuf + 7);
         const char *slash = strrchr(url, '/');
         fname = slash ? slash + 1 : url;
     } else {
         fprintf(stderr, "error: unknown package '%s'\n", pkg);
         fprintf(stderr, "  usage: mylang install std\n");
         fprintf(stderr, "         mylang install https://example.com/math.vibes\n");
+        fprintf(stderr, "         mylang install https://example.com/math.vibes#sha256=<hex>\n");
         fprintf(stderr, "         mylang install github:owner/repo/main/math.vibes\n");
         return 1;
     }
@@ -150,13 +350,48 @@ static int cmd_install(const char *pkg)
     mkdir_p(dir);
     snprintf(dest, sizeof dest, "%s/%s", dir, fname);
 
-    char cmd[2600];
-    snprintf(cmd, sizeof cmd, "curl -fsSL \"%s\" -o \"%s\"", url, dest);
-    int rc = system(cmd);
+    /* Download with curl via exec — no shell, so no command injection.
+       Download to a temp file and rename into place only on success, so a
+       failed or interrupted download never leaves a partial package. */
+    char tmp_dest[1300];
+    snprintf(tmp_dest, sizeof tmp_dest, "%s.tmp", dest);
+    char *const dl[] = { "curl", "-fsSL", url, "-o", tmp_dest, NULL };
+    int rc = run_argv(dl);
     if (rc != 0) {
+        remove(tmp_dest);
         fprintf(stderr, "error: download failed for '%s' (is curl installed?)\n", url);
         return 1;
     }
+
+    /* Verify the pinned SHA-256 checksum, if one was supplied */
+    if (expected_sha) {
+        long len = 0;
+        char *data = read_file(tmp_dest, &len);
+        if (!data) { remove(tmp_dest); return 1; }
+        uint8_t digest[32];
+        char hex[65];
+        sha256((const uint8_t *)data, (size_t)len, digest);
+        sha256_hex(digest, hex);
+        free(data);
+        if (strcasecmp(hex, expected_sha) != 0) {
+            fprintf(stderr, "error: checksum mismatch for '%s'\n", url);
+            fprintf(stderr, "  expected  sha256:%s\n", expected_sha);
+            fprintf(stderr, "  actual    sha256:%s\n", hex);
+            remove(tmp_dest);
+            return 1;
+        }
+        printf("  sha256 verified: %s\n", hex);
+    } else {
+        printf("  warning: no #sha256=<hex> checksum pinned — content is unverified\n");
+    }
+
+    /* Move the verified download into place (atomic on the same filesystem) */
+    if (rename(tmp_dest, dest) != 0) {
+        fprintf(stderr, "error: cannot move package into place: %s\n", dest);
+        remove(tmp_dest);
+        return 1;
+    }
+
     printf("installed %s -> %s\n", name, dest);
     return 0;
 }
@@ -213,7 +448,9 @@ static char *read_file(const char *path, long *out_len)
 
     if (fseek(fp, 0, SEEK_END) != 0) { fclose(fp); return NULL; }
     long size = ftell(fp);
-    rewind(fp);
+    if (size < 0) { fclose(fp); return NULL; }
+    /* fseek (not rewind) so failures are caught instead of relying on errno */
+    if (fseek(fp, 0, SEEK_SET) != 0) { fclose(fp); return NULL; }
 
     char *buf = (char *)malloc((size_t)size + 1);
     if (!buf) { fprintf(stderr, "error: out of memory\n"); fclose(fp); return NULL; }
@@ -247,36 +484,48 @@ static int compile(const char *c_path, const char *bin_path, int needs_raylib)
 {
     fprintf(stderr, "compiling...\n");
 
-    char cmd[2048];
-    int n;
-
+    /* Resolve raylib's include/lib dirs instead of hardcoding /opt/homebrew:
+       Apple-Silicon Homebrew, Intel Homebrew, then plain system paths. */
+    const char *raylib_root = NULL;
     if (needs_raylib) {
-        n = snprintf(cmd, sizeof cmd,
-                     "clang -std=c99 -Wall -Wextra "
-                     "-I/opt/homebrew/include "
-                     "-L/opt/homebrew/lib "
-                     "-lraylib -lm "
-                     "-o \"%s\" \"%s\" 2>&1",
-                     bin_path, c_path);
-    } else {
-        n = snprintf(cmd, sizeof cmd,
-                     "clang -std=c99 -Wall -Wextra "
-                     "-lm "
-                     "-o \"%s\" \"%s\" 2>&1",
-                     bin_path, c_path);
+        static const char *candidates[] = { "/opt/homebrew", "/usr/local", NULL };
+        for (int i = 0; candidates[i]; ++i) {
+            char probe[512];
+            snprintf(probe, sizeof probe, "%s/include/raylib.h", candidates[i]);
+            struct stat st;
+            if (stat(probe, &st) == 0) { raylib_root = candidates[i]; break; }
+        }
     }
 
-    if (n < 0 || (size_t)n >= sizeof cmd) {
-        fprintf(stderr, "error: command too long\n");
-        return 1;
+    /* Build the argv array — exec'ed directly, never through a shell. */
+    char inc_arg[512], lib_arg[512];
+    char *argv[16];
+    int n = 0;
+    argv[n++] = "clang";
+    argv[n++] = "-std=c99";
+    argv[n++] = "-Wall";
+    argv[n++] = "-Wextra";
+    if (raylib_root) {
+        snprintf(inc_arg, sizeof inc_arg, "-I%s/include", raylib_root);
+        snprintf(lib_arg, sizeof lib_arg, "-L%s/lib", raylib_root);
+        argv[n++] = inc_arg;
+        argv[n++] = lib_arg;
     }
+    argv[n++] = "-o";
+    argv[n++] = (char *)bin_path;
+    argv[n++] = (char *)c_path;
+    if (needs_raylib) argv[n++] = "-lraylib";
+    argv[n++] = "-lm";
+    argv[n++] = NULL;
 
-    fprintf(stderr, "  %s\n", cmd);
-    int ret = system(cmd);
+    /* Display the equivalent command (diagnostics only — argv is what runs) */
+    fprintf(stderr, "  clang");
+    for (int i = 1; argv[i]; ++i) fprintf(stderr, " %s", argv[i]);
+    fprintf(stderr, "\n");
 
+    int ret = run_argv(argv);
     if (ret != 0)
         fprintf(stderr, "compilation failed (exit code %d)\n", ret);
-
     return ret;
 }
 
@@ -288,9 +537,9 @@ static int run_binary(const char *bin_path)
     fprintf(stderr, "running...\n\n");
     fflush(stderr);
 
-    char cmd[1024];
-    snprintf(cmd, sizeof cmd, "\"%s\"", bin_path);
-    int ret = system(cmd);
+    /* exec'ed directly — safe for any bin_path, no shell involved */
+    char *const argv[] = { (char *)bin_path, NULL };
+    int ret = run_argv(argv);
 
     fprintf(stderr, "\n(exit code %d)\n", ret);
     return ret;
@@ -682,15 +931,18 @@ static int cmd_step(const char *source_path)
  * ------------------------------------------------------------------ */
 static int cmd_run(const char *source_path)
 {
-    pid_t pid = getpid();
-    char bin_path[256];
-    snprintf(bin_path, sizeof bin_path, "/tmp/mylang_%d", (int)pid);
+    /* Unique, unguessable temp path (mkstemp) — the old /tmp/mylang_<pid>
+       was predictable and raceable via a symlink (TOCTOU). */
+    char tmpl[] = "/tmp/mylang_XXXXXX";
+    int fd = mkstemp(tmpl);
+    if (fd < 0) { fprintf(stderr, "error: cannot create temporary file\n"); return 1; }
+    close(fd);
 
-    int ret = cmd_build(source_path, bin_path);
-    if (ret != 0) { remove(bin_path); return ret; }
+    int ret = cmd_build(source_path, tmpl);
+    if (ret != 0) { remove(tmpl); return ret; }
 
-    ret = run_binary(bin_path);
-    remove(bin_path);
+    ret = run_binary(tmpl);
+    remove(tmpl);
     return ret;
 }
 

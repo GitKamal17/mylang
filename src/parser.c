@@ -20,7 +20,8 @@ static char *read_entire_file(const char *path, size_t *out_len)
     if (fseek(fp, 0, SEEK_END) != 0) { fclose(fp); return NULL; }
     long sz = ftell(fp);
     if (sz < 0) { fclose(fp); return NULL; }
-    rewind(fp);
+    /* fseek (not rewind) so failures are caught instead of relying on errno */
+    if (fseek(fp, 0, SEEK_SET) != 0) { fclose(fp); return NULL; }
 
     char *buf = (char *)malloc((size_t)sz + 1);
     if (!buf) { fclose(fp); return NULL; }
@@ -417,12 +418,13 @@ static void debug_print_expr(const expr_t *e, int indent)
         fprintf(stderr, "IDENT(%.*s)\n", (int)e->as.identifier.length, e->as.identifier.start);
         break;
     case EXPR_BINARY: {
-        const char *op = "?";
+        const char *op;
         switch (e->as.binary.op) {
         case OP_PLUS:  op = "+"; break;
         case OP_MINUS: op = "-"; break;
         case OP_STAR:  op = "*"; break;
         case OP_SLASH: op = "/"; break;
+        default:       op = "?"; break;
         }
         fprintf(stderr, "BINARY(%s)\n", op);
         debug_print_expr(e->as.binary.left, indent + 1);
@@ -443,7 +445,7 @@ static void debug_print_expr(const expr_t *e, int indent)
             debug_print_expr(e->as.call.args[i], indent + 1);
         return;
     case EXPR_COMPARISON: {
-        const char *op = "?";
+        const char *op;
         switch (e->as.comparison.op) {
         case CMP_GT: op = ">"; break;
         case CMP_LT: op = "<"; break;
@@ -451,6 +453,7 @@ static void debug_print_expr(const expr_t *e, int indent)
         case CMP_LE: op = "<="; break;
         case CMP_EQ: op = "=="; break;
         case CMP_NE: op = "!="; break;
+        default:     op = "?"; break;
         }
         fprintf(stderr, "COMPARISON(%s)\n", op);
         debug_print_expr(e->as.comparison.left, indent + 1);

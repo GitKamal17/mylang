@@ -124,7 +124,7 @@ Usage: mylang <command> <file.vibes>
   --explain emit   <file>    Show annotated C code with source-line comments
   --explain tokens <file>    Show each token with plain-English explanations
   --version                  Print the mylang version and exit
-  install <pkg>    Install a package (std, a URL, or github:owner/repo/main/file.vibes)
+  install <pkg>    Install a package (std, an HTTPS URL, or github:owner/repo/main/file.vibes)
   list             List installed packages (~/.mylang/packages)
 ```
 
@@ -164,9 +164,16 @@ Usage: mylang <command> <file.vibes>
 ## 📦 Package Manager
 
 ```bash
-mylang install std          # install the bundled std package
-mylang list                 # show installed packages
+mylang install std                                  # install the bundled std package
+mylang install https://example.com/math.vibes                  # from any HTTPS URL
+mylang install https://example.com/math.vibes#sha256=<hex>     # pin + verify the SHA-256
+mylang list                                             # show installed packages
 ```
+
+> 🔒 **Security:** installed packages are code that gets compiled and run, so
+> `mylang install` **refuses plaintext `http://` URLs**. For extra safety, pin
+> a checksum with `#sha256=<64 hex chars>` — the download is verified against
+> it before installation.
 
 Then in your `.vibes` files:
 

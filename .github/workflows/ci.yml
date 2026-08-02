@@ -35,6 +35,49 @@ jobs:
       - name: Verify game-mode codegen (game.vibes)
         run: ./mylang emit examples/game.vibes > /tmp/game_gen.c
 
+      - name: Static analysis (clang --analyze)
+        run: make analyze
+
+      - name: Sanitizer build & tests (ASan + UBSan)
+        run: make sanitize
+
+      - name: Regression — no shell injection via filenames or URLs
+        run: |
+          # A filename containing shell metacharacters ($(...)) must never
+          # execute anything through mylang (fixed: system() -> fork/execvp).
+          # Note: the payload must not contain '/' or the OS would resolve
+          # it as nested path components instead of a single filename.
+          printf 'print 1\n' > '/tmp/evil$(touch pwned).vibes'
+          ./mylang build '/tmp/evil$(touch pwned).vibes' > /dev/null 2>&1 || true
+          if [ -e pwned ]; then
+            echo "FAIL: command injection via filename"; exit 1
+          fi
+          rm -f '/tmp/evil$(touch pwned).vibes' \
+                '/tmp/evil$(touch pwned).c' \
+                '/tmp/evil$(touch pwned)' pwned
+          # Plaintext http:// package URLs must be refused outright
+          if ./mylang install 'http://example.com/math.vibes' > /dev/null 2>&1; then
+            echo "FAIL: insecure http:// install was accepted"; exit 1
+          fi
+          echo "no-injection + http-refusal checks OK"
+
+      - name: Package checksum verification
+        run: |
+          URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/examples/app.vibes"
+          curl -fsSL "$URL" -o /tmp/verify.vibes
+          if command -v shasum > /dev/null; then
+            HASH=$(shasum -a 256 /tmp/verify.vibes | awk '{print $1}')
+          else
+            HASH=$(sha256sum /tmp/verify.vibes | awk '{print $1}')
+          fi
+          # correct checksum -> install succeeds
+          ./mylang install "$URL#sha256=$HASH" > /dev/null 2>&1
+          # wrong checksum -> must be refused
+          if ./mylang install "$URL#sha256=0000000000000000000000000000000000000000000000000000000000000000" > /dev/null 2>&1; then
+            echo "FAIL: mismatched checksum was accepted"; exit 1
+          fi
+          echo "checksum verification OK"
+
       - name: Warnings check
         run: |
           make clean
