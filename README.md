@@ -17,6 +17,10 @@ scripting language with functions, variables, arrays, dictionaries, and file I/O
 
 ---
 
+**New here? Start with [🚀 GETTING_STARTED.md](GETTING_STARTED.md)** — a 10-minute,
+no-experience-required guide: how the compiler works, a tour of this repo, and
+how to write your first programs and games.
+
 **Two ways to learn:**
 - **🕹️ [Game scripting path](#-quick-start)** — `window`, sprites, sound, collision, input: Pong, Breakout, Platformer
 - **📖 [General-purpose path](#-general-purpose)** — `fn`, `print`, `if/else`, `while/for`, arrays, dictionaries, file I/O
@@ -210,6 +214,8 @@ packages/      Source for bundled std packages
 vibes-vscode/  VS Code syntax highlighting extension
 docs/          demo.gif — the animated showcase
 LEARN.md       The official language documentation
+GETTING_STARTED.md  The 10-minute beginner's guide (start here)
+CHANGELOG.md   Version history
 ```
 
 ## 📄 License
