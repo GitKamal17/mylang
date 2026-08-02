@@ -1,0 +1,6 @@
+window "Sprite Demo", 800, 600
+sprite player = "player.png"
+x = 400
+y = 300
+if key_right { x = x + 5 }
+draw_sprite player, x, y

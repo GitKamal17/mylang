@@ -1,0 +1,72 @@
+# ============================================================
+#  PONG — two-player paddle game
+#  Player 1 (left):  W / S
+#  Player 2 (right): Up / Down arrows
+#  First to move the ball past the opponent's paddle scores.
+#  Run:  mylang run examples/pong.vibes
+# ============================================================
+
+window "Pong", 800, 600
+
+# --- Ball ---
+ball_x = 400
+ball_y = 300
+ball_dx = 3
+ball_dy = 2
+
+# --- Paddles (top-left corner of each 12x100 paddle) ---
+p1_y = 300
+p2_y = 300
+
+# --- Scores ---
+score1 = 0
+score2 = 0
+
+on update {
+    # ---- Move paddles ----
+    if key_w { p1_y = p1_y - 6 }
+    if key_s { p1_y = p1_y + 6 }
+    if key_up { p2_y = p2_y - 6 }
+    if key_down { p2_y = p2_y + 6 }
+
+    # Keep paddles on screen
+    if p1_y < 50 { p1_y = 50 }
+    if p1_y > 550 { p1_y = 550 }
+    if p2_y < 50 { p2_y = 50 }
+    if p2_y > 550 { p2_y = 550 }
+
+    # ---- Move ball ----
+    ball_x = ball_x + ball_dx
+    ball_y = ball_y + ball_dy
+
+    # ---- Bounce off top / bottom walls ----
+    if ball_y < 10 { ball_dy = 0 - ball_dy }
+    if ball_y > 590 { ball_dy = 0 - ball_dy }
+
+    # ---- Bounce off paddles (ball bounding box vs paddle rect) ----
+    if collide_rect(ball_x - 10, ball_y - 10, 20, 20, 20, p1_y - 50, 12, 100) {
+        ball_dx = 0 - ball_dx
+    }
+    if collide_rect(ball_x - 10, ball_y - 10, 20, 20, 768, p2_y - 50, 12, 100) {
+        ball_dx = 0 - ball_dx
+    }
+
+    # ---- Score & reset ----
+    if ball_x < 0 {
+        score2 = score2 + 1
+        ball_x = 400
+        ball_y = 300
+        ball_dx = 0 - ball_dx
+    }
+    if ball_x > 800 {
+        score1 = score1 + 1
+        ball_x = 400
+        ball_y = 300
+        ball_dx = 0 - ball_dx
+    }
+}
+
+# ---- Draw everything (update section runs first, then this) ----
+circle ball_x, ball_y, 10, "white"
+draw_rect 20, p1_y - 50, 12, 100, "skyblue"
+draw_rect 768, p2_y - 50, 12, 100, "red"

@@ -1,0 +1,5 @@
+import "adder.vibes"
+import "adder.vibes"
+
+x = add(1, 2)
+print x

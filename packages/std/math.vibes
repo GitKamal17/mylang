@@ -1,0 +1,11 @@
+# std/math — standard math helpers
+# Install with: mylang install std
+# Use with:     import "std/math"
+
+fn distance(x1, y1, x2, y2) {
+    return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))
+}
+
+fn lerp(a, b, t) {
+    return a + (b - a) * t
+}

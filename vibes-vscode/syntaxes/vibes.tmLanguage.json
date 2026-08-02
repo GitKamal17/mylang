@@ -1,0 +1,120 @@
+{
+  "name": "Vibes (MyLang)",
+  "scopeName": "source.vibes",
+  "fileTypes": ["vibes"],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.vibes",
+          "begin": "//",
+          "end": "$"
+        },
+        {
+          "name": "comment.block.vibes",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.vibes",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.vibes",
+          "match": "\\\\."
+        }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.vibes",
+      "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.vibes",
+          "match": "\\b(if|else|while|for|break|continue|return|import|struct|fn)\\b"
+        },
+        {
+          "name": "keyword.statement.window.vibes",
+          "match": "\\b(window)\\b"
+        },
+        {
+          "name": "keyword.statement.event.vibes",
+          "match": "\\b(on)\\b"
+        },
+        {
+          "name": "keyword.statement.print.vibes",
+          "match": "\\b(print)\\b"
+        },
+        {
+          "name": "keyword.draw.circle.vibes",
+          "match": "\\b(circle|draw_circle)\\b"
+        },
+        {
+          "name": "keyword.draw.rect.vibes",
+          "match": "\\b(draw_rect)\\b"
+        },
+        {
+          "name": "keyword.draw.sprite.vibes",
+          "match": "\\b(sprite|draw_sprite)\\b"
+        },
+        {
+          "name": "keyword.input.key.vibes",
+          "match": "\\b(key_right|key_left|key_up|key_down|key_space|key_enter|key_w|key_a|key_s|key_d)\\b"
+        },
+        {
+          "name": "keyword.input.mouse.vibes",
+          "match": "\\b(mouse_x|mouse_y|mouse_down|mouse_click)\\b"
+        },
+        {
+          "name": "keyword.builtin.game.vibes",
+          "match": "\\b(collide_circle|collide_rect|collide_point|load_sound|play_sound|play_music)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "name": "keyword.operator.vibes",
+      "match": "=|\\+|\\-"
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.vibes",
+          "match": ","
+        },
+        {
+          "name": "punctuation.brace.vibes",
+          "match": "\\{|\\}"
+        },
+        {
+          "name": "punctuation.parenthesis.vibes",
+          "match": "\\(|\\)"
+        }
+      ]
+    }
+  }
+}

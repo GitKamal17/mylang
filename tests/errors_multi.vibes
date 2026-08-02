@@ -1,0 +1,11 @@
+# errors_multi.vibes — intentionally broken file used to test that the
+# parser recovers from errors and reports ALL of them in one pass,
+# instead of stopping at the first one.
+
+x = 5 +          # error 1: missing right-hand operand after '+'
+y =              # error 2: missing value after '='
+fn broken( {     # error 3: missing function name (param list opened directly)
+    print        # error 4: print with no value
+}
+z = * 3          # error 5: invalid expression start
+w = 7            # valid — must still parse after all errors

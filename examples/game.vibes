@@ -1,0 +1,11 @@
+window "Movable Ball", 800, 600
+
+x = 400
+y = 300
+
+if key_right { x = x + 5 }
+if key_left  { x = x - 5 }
+if key_up    { y = y - 5 }
+if key_down  { y = y + 5 }
+
+circle x, y, 30, "red"

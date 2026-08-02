@@ -1,0 +1,24 @@
+# 1. User Input
+name = input("Enter your name: ")
+print "Welcome to MyLang, ", name
+
+# 2. Array/List Creation & Access
+numbers = [10, 20, 30]
+print "First number in array:"
+print numbers[0]
+
+# 3. File Writing
+write_file("output.txt", "Created using my custom programming language!")
+print "Successfully wrote to output.txt!"
+
+# 4. File Reading
+if file_exists("output.txt") {
+    contents = read_file("output.txt")
+    print "File contents: ", contents
+} else {
+    print "File not found!"
+}
+
+# 5. Appending to a file
+append_file("log.txt", "Log entry: program ran successfully\n")
+print "Appended to log.txt"

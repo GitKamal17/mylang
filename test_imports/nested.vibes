@@ -1,0 +1,6 @@
+import "greeter.vibes"
+import "math.vibes"
+
+print "Testing nested..."
+greet("Test")
+print double(21)

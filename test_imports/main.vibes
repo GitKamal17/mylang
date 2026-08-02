@@ -1,0 +1,4 @@
+import "greeter.vibes"
+
+print "Testing imports..."
+greet("World")

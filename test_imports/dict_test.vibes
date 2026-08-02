@@ -1,0 +1,3 @@
+import "greeter.vibes"
+scores = {"alice": 95}
+print scores["alice"]

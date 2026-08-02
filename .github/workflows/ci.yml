@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (zero warnings expected)
+        run: make
+
+      - name: Run all test suites
+        run: make test
+
+      - name: Check CLI version
+        run: ./mylang --version
+
+      - name: Verify general-purpose codegen (app.vibes)
+        run: |
+          ./mylang emit examples/app.vibes > /tmp/app_gen.c
+          echo "--- emitted C (first 30 lines) ---"
+          head -30 /tmp/app_gen.c
+
+      - name: Verify game-mode codegen (game.vibes)
+        run: ./mylang emit examples/game.vibes > /tmp/game_gen.c
+
+      - name: Warnings check
+        run: |
+          make clean
+          OUT="$(make 2>&1)"
+          echo "$OUT"
+          if echo "$OUT" | grep -E 'warning:'; then
+            echo "::error::Build produced warnings"
+            exit 1
+          fi
+          echo "No warnings. ✅"

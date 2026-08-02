@@ -1,0 +1,21 @@
+window "Mouse & WASD Demo", 800, 600
+
+x = 400
+y = 300
+
+# WASD movement
+if key_w { y = y - 5 }
+if key_s { y = y + 5 }
+if key_a { x = x - 5 }
+if key_d { x = x + 5 }
+
+# Reset with space / enter
+if key_space { x = 400 }
+if key_enter { y = 300 }
+
+# Mouse: jump to cursor while held, stick on click
+if mouse_down { x = mouse_x }
+if mouse_click { y = mouse_y }
+
+circle x, y, 30, "red"
+circle mouse_x, mouse_y, 8, "blue"

@@ -1,0 +1,113 @@
+# ============================================================
+#  BREAKOUT — break all the bricks!
+#  Left / Right arrows move the paddle.
+#  The ball breaks bricks it touches; bricks fly off-screen
+#  (their y jumps to 1000) so they disappear.
+#  Run:  mylang run examples/breakout.vibes
+# ============================================================
+
+window "Breakout", 800, 600
+
+# --- Paddle ---
+pad_x = 350
+
+# --- Ball ---
+ball_x = 400
+ball_y = 500
+ball_dx = 3
+ball_dy = -3
+
+# --- Bricks (y = 1000 means "destroyed", drawn off-screen) ---
+b1x = 100
+b1y = 80
+b2x = 250
+b2y = 80
+b3x = 400
+b3y = 80
+b4x = 550
+b4y = 80
+b5x = 175
+b5y = 140
+b6x = 325
+b6y = 140
+b7x = 475
+b7y = 140
+
+score = 0
+
+on update {
+    # ---- Move paddle ----
+    if key_left { pad_x = pad_x - 8 }
+    if key_right { pad_x = pad_x + 8 }
+    if pad_x < 0 { pad_x = 0 }
+    if pad_x > 680 { pad_x = 680 }
+
+    # ---- Move ball ----
+    ball_x = ball_x + ball_dx
+    ball_y = ball_y + ball_dy
+
+    # ---- Bounce off walls ----
+    if ball_x < 8 { ball_dx = 0 - ball_dx }
+    if ball_x > 792 { ball_dx = 0 - ball_dx }
+    if ball_y < 8 { ball_dy = 0 - ball_dy }
+
+    # ---- Bounce off the paddle ----
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, pad_x, 570, 120, 14) {
+        ball_dy = 0 - ball_dy
+    }
+
+    # ---- Break bricks (destroy + bounce + score) ----
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b1x, b1y, 100, 30) {
+        b1y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b2x, b2y, 100, 30) {
+        b2y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b3x, b3y, 100, 30) {
+        b3y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b4x, b4y, 100, 30) {
+        b4y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b5x, b5y, 100, 30) {
+        b5y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b6x, b6y, 100, 30) {
+        b6y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b7x, b7y, 100, 30) {
+        b7y = 1000
+        ball_dy = 0 - ball_dy
+        score = score + 100
+    }
+
+    # ---- Ball fell off the bottom → reset ----
+    if ball_y > 620 {
+        ball_x = 400
+        ball_y = 500
+        ball_dy = -3
+    }
+}
+
+# ---- Draw everything ----
+draw_rect pad_x, 570, 120, 14, "skyblue"
+draw_rect b1x, b1y, 100, 30, "red"
+draw_rect b2x, b2y, 100, 30, "orange"
+draw_rect b3x, b3y, 100, 30, "yellow"
+draw_rect b4x, b4y, 100, 30, "green"
+draw_rect b5x, b5y, 100, 30, "blue"
+draw_rect b6x, b6y, 100, 30, "purple"
+draw_rect b7x, b7y, 100, 30, "pink"
+circle ball_x, ball_y, 8, "white"

@@ -1,0 +1,31 @@
+{
+  "name": "vibes-vscode",
+  "displayName": "Vibes Language Support",
+  "description": "Syntax highlighting for .vibes (MyLang) game scripting files",
+  "version": "0.1.0",
+  "publisher": "mylang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "vibes",
+        "aliases": ["Vibes", "MyLang", "vibes"],
+        "extensions": [".vibes"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vibes",
+        "scopeName": "source.vibes",
+        "path": "./syntaxes/vibes.tmLanguage.json"
+      }
+    ]
+  }
+}
