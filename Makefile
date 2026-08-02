@@ -83,7 +83,8 @@ uninstall:
 
 clean:
 	rm -f mylang $(OBJS) $(DEPS) $(TEST_LEXER_BIN) $(TEST_PARSER_BIN) $(TEST_CODEGEN_BIN) \
-	      $(TEST_LEXER_BIN).d $(TEST_PARSER_BIN).d $(TEST_CODEGEN_BIN).d
+	      $(TEST_LEXER_BIN).d $(TEST_PARSER_BIN).d $(TEST_CODEGEN_BIN).d \
+	      src/*.o.tmp
 
 demo-gif: mylang
 	bash scripts/make_demo_gif.sh

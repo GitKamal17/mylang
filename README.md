@@ -11,7 +11,7 @@ scripting language with functions, variables, arrays, dictionaries, and file I/O
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](VERSION)
 
-![MyLang demo](docs/demo.gif)
+<img src="docs/demo.gif" width="640" alt="MyLang demo">
 
 </div>
 
