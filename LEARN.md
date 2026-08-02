@@ -4,6 +4,9 @@
 
 **A tiny, human-friendly language that transpiles to C + Raylib.**
 
+> **Brand new to MyLang? Start with [🚀 GETTING_STARTED.md](GETTING_STARTED.md)** —
+> the 10-minute beginner's guide. This file is the full reference.
+
 Write games in `.vibes`, generate real C99, compile with `clang -lraylib`, and run — or use it as a general-purpose scripting language with functions, variables, arrays, dictionaries, and file I/O.
 
 **Two ways to learn:**

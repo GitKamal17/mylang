@@ -307,7 +307,7 @@ if file_exists("note.txt") {
 ### Math
 
 ```vibes
-print sqrt(16)          # 4.0
+print sqrt(16)          # prints 4.000000
 print min(3, 7)         # 3
 print max(3, 7)         # 7
 print random_int(1, 6)  # a dice roll!
@@ -445,7 +445,7 @@ if collide_circle(x, y, 20, target_x, target_y, 20) {
     score = score + 1
     target_x = random_int(50, 750)
     target_y = random_int(50, 550)
-    print "Score: ", score
+    print "Score: ", score    # note: score prints to the terminal
 }
 
 circle x, y, 20, "white"
