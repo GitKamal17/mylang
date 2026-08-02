@@ -11,6 +11,8 @@ scripting language with functions, variables, arrays, dictionaries, and file I/O
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](VERSION)
 
+![MyLang demo](docs/demo.gif)
+
 </div>
 
 ---
@@ -139,7 +141,7 @@ Usage: mylang <command> <file.vibes>
 
 **Game mode:** `window`, `sprite`, `draw_sprite`, `play_sound`, `play_music`,
 `collide_circle`, `collide_rect`, `collide_point`, `mouse_x`, `mouse_y`,
-`mouse_down`, `mouse_click`, and 20+ key checks
+`mouse_down`, `mouse_click`, and 10 key checks (arrows, WASD, space, enter)
 
 > The complete reference — every keyword, built-in, and the 24 built-in colors —
 > is in **[LEARN.md → Reference](LEARN.md#-reference--every-keyword--built-in)**.
