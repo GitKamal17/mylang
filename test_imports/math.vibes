@@ -1,1 +1,2 @@
-fn double(x) { return x * 2 }
+fn double(x):
+    return x * 2

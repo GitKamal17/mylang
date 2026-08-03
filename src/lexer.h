@@ -50,6 +50,13 @@ typedef enum {
 
     /* Dot for method call syntax */
     TOKEN_DOT        = 28,
+
+    /* Python-style indentation markers emitted by the lexer's
+       indentation tracker.  The parser currently skips these (block
+       structure still comes from { } braces); they exist for tooling,
+       debug output, and a future indentation-based block syntax. */
+    TOKEN_INDENT     = 29,
+    TOKEN_DEDENT     = 30,
 } token_type_t;
 
 /* ------------------------------------------------------------------ *
@@ -68,11 +75,40 @@ typedef struct {
 /* ------------------------------------------------------------------ *
  * Lexer state.  Created on the stack, initialised with lexer_init(). *
  * ------------------------------------------------------------------ */
+
+/* Maximum nesting depth of the indentation stack. */
+#define MYLANG_MAX_INDENT 64
+
 typedef struct {
     const char *start;   /* beginning of the entire source             */
     const char *current; /* next character to consume                  */
     int         line;    /* current line (1-based)                     */
     int         column;  /* current column in the current line (1-based) */
+
+    /* --- Python-style indentation tracking ---
+       At the start of each logical (physical) line the leading whitespace
+       is measured and compared against indent_stack (initialised to
+       [0]).  A deeper line pushes its width and emits TOKEN_INDENT; a
+       shallower line pops until a matching level is found, emitting one
+       TOKEN_DEDENT per level popped (queued in pending_dedents).  An
+       indent that matches no level is a lexer error ("inconsistent
+       indentation").  Blank and comment-only lines are skipped for this
+       purpose.  At EOF, enough DEDENTs are emitted to pop the stack back
+       to level 0.
+
+       Tabs-vs-spaces policy: tabs are rejected in code ENTIRELY — a tab
+       in indentation OR between tokens is a hard lexer error (this
+       avoids Python's classic tab/space mixing bugs).  Only tabs inside
+       string literals are allowed, and they are preserved verbatim. */
+    int   indent_stack[MYLANG_MAX_INDENT]; /* levels; indent_stack[0] = 0 */
+    int   indent_depth;    /* number of levels currently on the stack      */
+    int   indent_pending;  /* at line start: indentation not yet measured  */
+    int   pending_indent;  /* 1 = the next token is TOKEN_INDENT           */
+    int   pending_dedents; /* count of TOKEN_DEDENT tokens still to emit   */
+    const char *pending_error; /* error message to emit as TOKEN_ERROR (or NULL) */
+    int   err_line, err_col;   /* source position for that error           */
+    const char *indent_pos;    /* start of the indentation whitespace      */
+    int   indent_line, indent_col, indent_width; /* position + width       */
 } lexer_t;
 
 /* ------------------------------------------------------------------ *

@@ -4,8 +4,7 @@
 
 x = 5 +          # error 1: missing right-hand operand after '+'
 y =              # error 2: missing value after '='
-fn broken( {     # error 3: missing function name (param list opened directly)
+fn broken(:      # error 3: missing parameter name after '('
     print        # error 4: print with no value
-}
 z = * 3          # error 5: invalid expression start
 w = 7            # valid — must still parse after all errors

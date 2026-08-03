@@ -7,6 +7,5 @@ A simple, human-friendly programming language transpiled into C99.
 ```vibes
 window "My Game", 800, 600
 
-on update {
+on update:
     draw_circle 400, 300, 50, "red"
-}

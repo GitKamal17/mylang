@@ -123,11 +123,15 @@ The first half of the output is the **token stream**:
   [3:5] NUMBER       "400"
   [6:1] KEYWORD      "if"
   [6:4] KEYWORD      "key_right"
-  [6:14] BRACE_OPEN   "{"
-  [6:16] IDENTIFIER   "x"
-  [6:22] PLUS         "+"
-  [6:24] NUMBER       "5"
-  [6:26] BRACE_CLOSE  "}"
+  [6:13] COLON        ":"
+  [7:1] INDENT       "    "
+  [7:5] IDENTIFIER   "x"
+  [7:7] EQUALS       "="
+  [7:9] IDENTIFIER   "x"
+  [7:11] PLUS         "+"
+  [7:13] NUMBER       "5"
+  [8:1] DEDENT       ""
+  [8:1] KEYWORD      "if"
   ...
 ```
 
@@ -136,7 +140,8 @@ Each line shows the **position** (`[line:column]`), the **token type**, and the 
 - `window` is a **KEYWORD** (a reserved word)
 - `x` is an **IDENTIFIER** (a variable or function name)
 - `800` is a **NUMBER**, `"Movable Ball"` is a **STRING**
-- `=` is **EQUALS**, `+` is **PLUS**, `{` / `}` are **BRACE_OPEN** / **BRACE_CLOSE**
+- `=` is **EQUALS**, `+` is **PLUS**, `:` is **COLON** (it ends a block header)
+- `INDENT` / `DEDENT` mark the start and end of an indented block body
 
 ### Try it with plain English: `mylang --explain tokens`
 
@@ -155,8 +160,9 @@ Token Explanations for: examples/game.vibes
 [1:24]   NUMBER       800                   Number — a numeric literal (e.g. 42, 3.14)
 [3:3]    EQUALS       =                     = — Assignment operator. Stores a value in a variable
 [6:4]    KEYWORD      key_right             Keyword — a reserved word like 'if', 'while', 'print', 'fn'
-[6:14]   BRACE_OPEN   {                     { — opens a block of code (e.g. if/while/function body)
-[6:22]   PLUS         +                     + — Addition operator. Adds two numbers or concatenates strings
+[6:13]   COLON        :                     : — ends a block header (e.g. 'if x > 5:') or separates keys from values in a dictionary
+[7:1]    INDENT       (4 spaces)            INDENT — the line is indented deeper; opens an indented block
+[7:11]   PLUS         +                     + — Addition operator. Adds two numbers or concatenates strings
 ```
 
 > 💡 **Lexer lesson:** `window "Title", 800, 600` is just a sequence of tokens. The lexer does *not* understand what a "window" is — it only knows it's a reserved word. Meaning comes later.
@@ -252,7 +258,7 @@ Notice how the codegen **reorders** your statements into the correct C structure
 |---|---|
 | `window "Movable Ball", 800, 600` | `InitWindow(800, 600, "Movable Ball");` before the loop |
 | `x = 400` / `y = 300` | `int x = 400; int y = 300;` before the loop |
-| `if key_right { x = x + 5 }` | `if (IsKeyDown(KEY_RIGHT)) { ... }` inside the loop, *before drawing* |
+| `if key_right:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`x = x + 5` | `if (IsKeyDown(KEY_RIGHT)) { ... }` inside the loop, *before drawing* |
 | `circle x, y, 30, "red"` | `DrawCircle(x, y, 30, RED);` inside `BeginDrawing()` / `EndDrawing()` |
 
 ### See which line each C line came from: `mylang --explain emit`
@@ -271,11 +277,11 @@ int main(void) {
 
     while (!WindowShouldClose()) {
         if (IsKeyDown(KEY_RIGHT)) {
-// [game.vibes:6]
+// [game.vibes:7]
             x = (x + 5);
         }
         if (IsKeyDown(KEY_LEFT)) {
-// [game.vibes:7]
+// [game.vibes:9]
             x = (x - 5);
         }
         ...
@@ -435,8 +441,10 @@ score = score + 250
 ### Keyboard keys
 
 ```vibes
-if key_right { x = x + 5 }
-if key_space  { shoot() }
+if key_right:
+    x = x + 5
+if key_space:
+    shoot()
 ```
 
 | MyLang | Generated C |
@@ -452,8 +460,10 @@ if key_space  { shoot() }
 ### Mouse
 
 ```vibes
-if mouse_down  { x = mouse_x }      # left button held → IsMouseButtonDown(MOUSE_LEFT_BUTTON)
-if mouse_click { y = mouse_y }      # just pressed → IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
+if mouse_down:
+    x = mouse_x                     # left button held → IsMouseButtonDown(MOUSE_LEFT_BUTTON)
+if mouse_click:
+    y = mouse_y                     # just pressed → IsMouseButtonPressed(MOUSE_LEFT_BUTTON)
 ```
 
 | MyLang | Generated C |
@@ -533,13 +543,16 @@ The music variable name is derived from the filename (`"music/bgm.ogg"` → `bgm
 All three return true/false, so they work directly as `if` conditions:
 
 ```vibes
-if collide_circle(x1, y1, r1, x2, y2, r2) { ... }
+if collide_circle(x1, y1, r1, x2, y2, r2):
+    ...
 # → if (CheckCollisionCircles((Vector2){x1, y1}, r1, (Vector2){x2, y2}, r2))
 
-if collide_rect(x1, y1, w1, h1, x2, y2, w2, h2) { ... }
+if collide_rect(x1, y1, w1, h1, x2, y2, w2, h2):
+    ...
 # → if (CheckCollisionRecs((Rectangle){x1, y1, w1, h1}, (Rectangle){x2, y2, w2, h2}))
 
-if collide_point(x, y, rx, ry, rw, rh) { ... }
+if collide_point(x, y, rx, ry, rw, rh):
+    ...
 # → if (CheckCollisionPointRec((Vector2){x, y}, (Rectangle){rx, ry, rw, rh}))
 ```
 
@@ -569,50 +582,55 @@ p2_y = 300
 score1 = 0
 score2 = 0
 
-on update {
-    if key_w { p1_y = p1_y - 6 }
-    if key_s { p1_y = p1_y + 6 }
-    if key_up { p2_y = p2_y - 6 }
-    if key_down { p2_y = p2_y + 6 }
+on update:
+    if key_w:
+        p1_y = p1_y - 6
+    if key_s:
+        p1_y = p1_y + 6
+    if key_up:
+        p2_y = p2_y - 6
+    if key_down:
+        p2_y = p2_y + 6
 
-    if p1_y < 50 { p1_y = 50 }
-    if p1_y > 550 { p1_y = 550 }
-    if p2_y < 50 { p2_y = 50 }
-    if p2_y > 550 { p2_y = 550 }
+    if p1_y < 50:
+        p1_y = 50
+    if p1_y > 550:
+        p1_y = 550
+    if p2_y < 50:
+        p2_y = 50
+    if p2_y > 550:
+        p2_y = 550
 
     ball_x = ball_x + ball_dx
     ball_y = ball_y + ball_dy
 
-    if ball_y < 10 { ball_dy = 0 - ball_dy }
-    if ball_y > 590 { ball_dy = 0 - ball_dy }
+    if ball_y < 10:
+        ball_dy = 0 - ball_dy
+    if ball_y > 590:
+        ball_dy = 0 - ball_dy
 
-    if collide_rect(ball_x - 10, ball_y - 10, 20, 20, 20, p1_y - 50, 12, 100) {
+    if collide_rect(ball_x - 10, ball_y - 10, 20, 20, 20, p1_y - 50, 12, 100):
         ball_dx = 0 - ball_dx
-    }
-    if collide_rect(ball_x - 10, ball_y - 10, 20, 20, 768, p2_y - 50, 12, 100) {
+    if collide_rect(ball_x - 10, ball_y - 10, 20, 20, 768, p2_y - 50, 12, 100):
         ball_dx = 0 - ball_dx
-    }
 
-    if ball_x < 0 {
+    if ball_x < 0:
         score2 = score2 + 1
         ball_x = 400
         ball_y = 300
         ball_dx = 0 - ball_dx
-    }
-    if ball_x > 800 {
+    if ball_x > 800:
         score1 = score1 + 1
         ball_x = 400
         ball_y = 300
         ball_dx = 0 - ball_dx
-    }
-}
 
 circle ball_x, ball_y, 10, "white"
 draw_rect 20, p1_y - 50, 12, 100, "skyblue"
 draw_rect 768, p2_y - 50, 12, 100, "red"
 ```
 
-**What it teaches:** `on update { }` blocks, variable updates, `draw_rect`, and `collide_rect` for paddle/ball bounces.
+**What it teaches:** `on update:` blocks, variable updates, `draw_rect`, and `collide_rect` for paddle/ball bounces.
 
 ### 🧱 Breakout — `examples/breakout.vibes`
 
@@ -644,37 +662,40 @@ b7y = 140
 
 score = 0
 
-on update {
-    if key_left { pad_x = pad_x - 8 }
-    if key_right { pad_x = pad_x + 8 }
-    if pad_x < 0 { pad_x = 0 }
-    if pad_x > 680 { pad_x = 680 }
+on update:
+    if key_left:
+        pad_x = pad_x - 8
+    if key_right:
+        pad_x = pad_x + 8
+    if pad_x < 0:
+        pad_x = 0
+    if pad_x > 680:
+        pad_x = 680
 
     ball_x = ball_x + ball_dx
     ball_y = ball_y + ball_dy
 
-    if ball_x < 8 { ball_dx = 0 - ball_dx }
-    if ball_x > 792 { ball_dx = 0 - ball_dx }
-    if ball_y < 8 { ball_dy = 0 - ball_dy }
-
-    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, pad_x, 570, 120, 14) {
+    if ball_x < 8:
+        ball_dx = 0 - ball_dx
+    if ball_x > 792:
+        ball_dx = 0 - ball_dx
+    if ball_y < 8:
         ball_dy = 0 - ball_dy
-    }
 
-    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b1x, b1y, 100, 30) {
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, pad_x, 570, 120, 14):
+        ball_dy = 0 - ball_dy
+
+    if collide_rect(ball_x - 8, ball_y - 8, 16, 16, b1x, b1y, 100, 30):
         b1y = 1000
         ball_dy = 0 - ball_dy
         score = score + 100
-    }
     # ... same pattern for b2x/b2y through b7x/b7y ...
     # (full file: examples/breakout.vibes)
 
-    if ball_y > 620 {
+    if ball_y > 620:
         ball_x = 400
         ball_y = 500
         ball_dy = -3
-    }
-}
 
 draw_rect pad_x, 570, 120, 14, "skyblue"
 draw_rect b1x, b1y, 100, 30, "red"
@@ -701,45 +722,42 @@ py = 100
 vy = 0
 on_ground = 0
 
-on update {
+on update:
     vy = vy + 1
     py = py + vy
 
-    if key_right { px = px + 5 }
-    if key_left  { px = px - 5 }
+    if key_right:
+        px = px + 5
+    if key_left:
+        px = px - 5
 
-    if px < 0 { px = 0 }
-    if px > 760 { px = 760 }
+    if px < 0:
+        px = 0
+    if px > 760:
+        px = 760
 
-    if collide_rect(px, py, 40, 40, 0, 560, 800, 40) {
+    if collide_rect(px, py, 40, 40, 0, 560, 800, 40):
         py = 560 - 40
         vy = 0
         on_ground = 1
-    }
-    if collide_rect(px, py, 40, 40, 250, 400, 200, 20) {
+    if collide_rect(px, py, 40, 40, 250, 400, 200, 20):
         py = 400 - 40
         vy = 0
         on_ground = 1
-    }
-    if collide_rect(px, py, 40, 40, 550, 300, 180, 20) {
+    if collide_rect(px, py, 40, 40, 550, 300, 180, 20):
         py = 300 - 40
         vy = 0
         on_ground = 1
-    }
 
-    if key_space {
-        if on_ground == 1 {
+    if key_space:
+        if on_ground == 1:
             vy = 0 - 14
             on_ground = 0
-        }
-    }
 
-    if py > 700 {
+    if py > 700:
         px = 100
         py = 100
         vy = 0
-    }
-}
 
 draw_rect px, py, 40, 40, "skyblue"
 draw_rect 0, 560, 800, 40, "lime"
@@ -762,7 +780,8 @@ sprite player = "player.png"   # loads once, before the loop
 x = 400
 y = 300
 
-if key_right { x = x + 5 }
+if key_right:
+    x = x + 5
 
 draw_sprite player, x, y       # drawn every frame at (x, y)
 ```
@@ -803,22 +822,22 @@ Combine this with `collide_rect` and `play_sound` and you have a full game loop 
 | Keyword | Meaning | Example |
 |---|---|---|
 | `window` | Open a Raylib window (game mode) | `window "Pong", 800, 600` |
-| `on` | Event block (`on update { ... }`) | `on update { x = x + 1 }` |
+| `on` | Event block | `on update:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`x = x + 1` |
 | `circle` / `draw_circle` | Draw a filled circle | `circle x, y, 30, "red"` |
 | `draw_rect` | Draw a filled rectangle | `draw_rect x, y, 40, 40, "lime"` |
 | `draw_sprite` | Draw a loaded sprite | `draw_sprite player, x, y` |
 | `sprite` | Load a texture | `sprite player = "player.png"` |
-| `key_right` / `key_left` / `key_up` / `key_down` | Arrow key checks | `if key_right { ... }` |
-| `if` / `else` | Conditionals | `if x > 5 { ... } else { ... }` |
-| `while` | Loop | `while x < 10 { x = x + 1 }` |
-| `for` | C-style loop | `for i = 0, i < 10, i = i + 1 { }` |
-| `break` | Exit a loop | `if done == 1 { break }` |
+| `key_right` / `key_left` / `key_up` / `key_down` | Arrow key checks | `if key_right:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...` |
+| `if` / `else` | Conditionals | `if x > 5:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...`<br>`else:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...` |
+| `while` | Loop | `while x < 10:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`x = x + 1` |
+| `for` | C-style loop | `for (i = 0; i < 10; i = i + 1):`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...` |
+| `break` | Exit a loop | `if done == 1:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`break` |
 | `continue` | Skip to next iteration | `continue` |
-| `fn` | Declare a function | `fn add(a, b) { return a + b }` |
+| `fn` | Declare a function | `fn add(a, b):`<br>&nbsp;&nbsp;&nbsp;&nbsp;`return a + b` |
 | `return` | Return from a function | `return result` |
 | `print` | Print to stdout | `print "Hello, ", name` |
 | `import` | Include another `.vibes` file | `import "math.vibes"` |
-| `struct` | Declare a struct | `struct Point { x, y }` |
+| `struct` | Declare a struct | `struct Point:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`x`<br>&nbsp;&nbsp;&nbsp;&nbsp;`y` |
 
 ## Built-in Functions
 

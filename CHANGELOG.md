@@ -35,9 +35,28 @@ Initial release.
 
 - CLI: `emit`, `build`, `run`, `debug`, `step`, `visualize`, `--explain`,
   `--version`, `install`, `list`
+- Bare filenames not found in the current folder auto-resolve to `examples/`
+  (e.g. `mylang run breakout.vibes` works from the repo root)
+- Lexer: Python-style indentation tracking — `TOKEN_INDENT`/`TOKEN_DEDENT`
+  emitted at block boundaries (blank/comment-only lines skipped, DEDENTs at
+  EOF; `make test` includes the standalone `test_indent` dumper)
+- Indentation policy: spaces only — tabs are rejected in code entirely
+  (in indentation or between tokens) with a clear lexer error; tabs inside
+  string literals are preserved verbatim
+- Block headers for every block construct — `fn`, `if`/`else`, `while`,
+  `for`, `on`, `struct` — now use `:` followed by a newline (`fn f(a, b):`,
+  `if x > 5:`, `while x:`, `else:`, `for (...):`, `on update:`,
+  `struct Point:`); legacy `{` headers still parse but emit one clear
+  migration error
+- Block bodies (for every block construct: `fn`, `if`/`else`, `while`,
+  `for`, `on`, `struct`) are now bounded by indentation — `TOKEN_INDENT`
+  opens the body and `TOKEN_DEDENT` closes it, replacing the old
+  "statements until `}`" loops. Legacy `{…}` bodies are still tolerated:
+  the header already flags them, and a trailing legacy `}` is absorbed
+  (parser-only; `ast.h` and `codegen.c` untouched)
 - `mylang install` package manager with bundled `std` package
 - `mylang debug` / `step` / `visualize` / `--explain` teaching tools
 - Multi-error reporting with line numbers and `^^^` carets
 - VS Code syntax highlighting extension (`vibes-vscode/`)
-- 92 automated tests (lexer / parser / codegen)
+- 110 automated tests (lexer / parser / codegen / indentation tracker)
 - Makefile, MIT license, demo GIF, this changelog

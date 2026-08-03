@@ -41,9 +41,9 @@ interpreter loop — the output is real C.
 
 | Game scripting | General purpose |
 |---|---|
-| `window "Pong", 800, 600` | `fn add(a, b) { return a + b }` |
+| `window "Pong", 800, 600` | `fn add(a, b):`<br>&nbsp;&nbsp;&nbsp;&nbsp;`return a + b` |
 | `circle x, y, 30, "red"` | `print "Hello, ", name` |
-| `if key_right { x = x + 5 }` | `if x > 10 { ... } else { ... }` |
+| `if key_right:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`x = x + 5` | `if x > 10:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...`<br>`else:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...` |
 | `sprite player = "player.png"` | `scores = {"alice": 95, "bob": 87}` |
 | `play_sound("jump.wav")` | `write_file("out.txt", data)` |
 | Collision detection, mouse, WASD | String methods, math, random, `sleep` |
@@ -62,7 +62,7 @@ interpreter loop — the output is real C.
 
 ```bash
 make                  # builds ./mylang (zero warnings)
-make test             # runs all 92 tests (lexer, parser, codegen)
+make test             # runs all 110 tests (lexer, parser, codegen, indentation)
 sudo make install     # installs to /usr/local/bin/mylang
 ```
 
@@ -70,9 +70,8 @@ sudo make install     # installs to /usr/local/bin/mylang
 
 ```vibes
 # examples/app.vibes
-fn add(a, b) {
+fn add(a, b):
     return a + b
-}
 
 name = input("Enter your name: ")
 print "Welcome to MyLang, ", name
@@ -96,10 +95,14 @@ window "Movable Ball", 800, 600
 x = 400
 y = 300
 
-if key_right { x = x + 5 }
-if key_left  { x = x - 5 }
-if key_up    { y = y - 5 }
-if key_down  { y = y + 5 }
+if key_right:
+    x = x + 5
+if key_left:
+    x = x - 5
+if key_up:
+    y = y - 5
+if key_down:
+    y = y + 5
 
 circle x, y, 30, "red"
 ```
@@ -127,6 +130,10 @@ Usage: mylang <command> <file.vibes>
   install <pkg>    Install a package (std, an HTTPS URL, or github:owner/repo/main/file.vibes)
   list             List installed packages (~/.mylang/packages)
 ```
+
+**Tip:** a bare filename that isn't found in the current folder is looked up in
+`examples/` automatically — so `mylang run breakout.vibes` works right from the
+repo root.
 
 ## 🧪 Built-in standard library
 
@@ -216,7 +223,7 @@ See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the full contributor guide.
 ```
 src/           lexer → parser → codegen + pipeline visualizer + CLI (main.c)
 examples/      Ready-to-run .vibes programs
-tests/         C test suites (test_lexer.c, test_parser.c, test_codegen.c)
+tests/         C test suites (test_lexer.c, test_parser.c, test_codegen.c, test_indent.c)
 packages/      Source for bundled std packages
 vibes-vscode/  VS Code syntax highlighting extension
 docs/          demo.gif — the animated showcase

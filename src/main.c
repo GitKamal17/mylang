@@ -947,6 +947,38 @@ static int cmd_run(const char *source_path)
 }
 
 /* ------------------------------------------------------------------ *
+ * Resolve a source file path before opening it.                     *
+ *                                                                     *
+ * The given path is used verbatim when it exists. A bare filename     *
+ * (no '/') that isn't found in the current folder is also looked for  *
+ * in the repo's examples/ directory, so `mylang run breakout.vibes`   *
+ * works from the repo root. Explicit paths (with a '/') are never     *
+ * rewritten, so error messages stay accurate.                         *
+ * ------------------------------------------------------------------ */
+static void resolve_source_path(const char *path, char *out, size_t out_size)
+{
+    struct stat st;
+    if (stat(path, &st) == 0) {
+        snprintf(out, out_size, "%s", path);
+        return;
+    }
+
+    if (strchr(path, '/') == NULL) {
+        snprintf(out, out_size, "examples/%s", path);
+        if (stat(out, &st) == 0) {
+            fprintf(stderr, "note: '%s' not found in the current folder — using '%s'\n",
+                    path, out);
+            return;
+        }
+        /* The fallback failed too — say where we looked. */
+        fprintf(stderr, "note: '%s' not found in the current folder or in examples/\n",
+                path);
+    }
+
+    snprintf(out, out_size, "%s", path);
+}
+
+/* ------------------------------------------------------------------ *
  * Entry point                                                        *
  * ------------------------------------------------------------------ */
 int main(int argc, char **argv)
@@ -982,10 +1014,12 @@ int main(int argc, char **argv)
             fprintf(stderr, "error: --explain requires a subcommand and file\n");
             return 1;
         }
+        char resolved[1100];
+        resolve_source_path(argv[3], resolved, sizeof resolved);
         if (strcmp(argv[2], "emit") == 0)
-            return cmd_explain_emit(argv[3]);
+            return cmd_explain_emit(resolved);
         else if (strcmp(argv[2], "tokens") == 0)
-            return cmd_explain_tokens(argv[3]);
+            return cmd_explain_tokens(resolved);
         else {
             fprintf(stderr, "error: unknown --explain subcommand '%s'\n", argv[2]);
             return 1;
@@ -993,7 +1027,9 @@ int main(int argc, char **argv)
     }
 
     const char *cmd  = argv[1];
-    const char *file = argv[2];
+    char resolved[1100];
+    resolve_source_path(argv[2], resolved, sizeof resolved);
+    const char *file = resolved;
 
     if (strcmp(cmd, "emit") == 0) {
         return cmd_emit(file);

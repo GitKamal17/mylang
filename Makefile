@@ -55,6 +55,7 @@ src/main.o: Makefile VERSION
 TEST_LEXER_BIN    = test_lexer
 TEST_PARSER_BIN   = test_parser
 TEST_CODEGEN_BIN  = test_codegen
+TEST_INDENT_BIN   = test_indent
 
 .PHONY: all test install uninstall clean demo-gif sanitize analyze
 
@@ -66,13 +67,17 @@ mylang: $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
 
-test: $(TEST_LEXER_BIN) $(TEST_PARSER_BIN) $(TEST_CODEGEN_BIN)
+test: $(TEST_LEXER_BIN) $(TEST_PARSER_BIN) $(TEST_CODEGEN_BIN) $(TEST_INDENT_BIN)
 	./$(TEST_LEXER_BIN)
 	./$(TEST_PARSER_BIN)
 	./$(TEST_CODEGEN_BIN)
+	./$(TEST_INDENT_BIN)
 
 $(TEST_LEXER_BIN): tests/test_lexer.c src/lexer.c src/lexer.h
 	$(CC) $(CFLAGS) $(INCLUDE) tests/test_lexer.c src/lexer.c -o $@ $(LDLIBS)
+
+$(TEST_INDENT_BIN): tests/test_indent.c src/lexer.c src/lexer.h
+	$(CC) $(CFLAGS) $(INCLUDE) tests/test_indent.c src/lexer.c -o $@ $(LDLIBS)
 
 $(TEST_PARSER_BIN): tests/test_parser.c src/parser.c src/lexer.c src/parser.h src/lexer.h src/ast.h
 	$(CC) $(CFLAGS) $(INCLUDE) tests/test_parser.c src/parser.c src/lexer.c -o $@ $(LDLIBS)
@@ -89,10 +94,11 @@ $(TEST_CODEGEN_BIN): tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c
 SANFLAGS = -std=c99 -Wall -Wextra -g -O1 -fsanitize=address,undefined \
            -fno-omit-frame-pointer -D_POSIX_C_SOURCE=200809L
 
-sanitize: $(TEST_LEXER_BIN)_san $(TEST_PARSER_BIN)_san $(TEST_CODEGEN_BIN)_san mylang_san
+sanitize: $(TEST_LEXER_BIN)_san $(TEST_PARSER_BIN)_san $(TEST_CODEGEN_BIN)_san $(TEST_INDENT_BIN)_san mylang_san
 	./$(TEST_LEXER_BIN)_san
 	./$(TEST_PARSER_BIN)_san
 	./$(TEST_CODEGEN_BIN)_san
+	./$(TEST_INDENT_BIN)_san
 	./mylang_san emit examples/app.vibes > /dev/null
 	./mylang_san emit examples/game.vibes > /dev/null
 	./mylang_san debug examples/game.vibes > /dev/null
@@ -106,6 +112,9 @@ $(TEST_PARSER_BIN)_san: tests/test_parser.c src/parser.c src/lexer.c src/parser.
 
 $(TEST_CODEGEN_BIN)_san: tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c src/codegen.h src/parser.h src/lexer.h src/ast.h
 	$(CC) $(SANFLAGS) $(INCLUDE) tests/test_codegen.c src/codegen.c src/parser.c src/lexer.c -o $@ $(LDLIBS)
+
+$(TEST_INDENT_BIN)_san: tests/test_indent.c src/lexer.c src/lexer.h
+	$(CC) $(SANFLAGS) $(INCLUDE) tests/test_indent.c src/lexer.c -o $@ $(LDLIBS)
 
 mylang_san: $(SRCS)
 	$(CC) $(SANFLAGS) $(INCLUDE) $(SRCS) -o $@ $(LDLIBS)
@@ -135,9 +144,9 @@ uninstall:
 	rm -f $(BINDIR)/mylang
 
 clean:
-	rm -f mylang $(OBJS) $(DEPS) $(TEST_LEXER_BIN) $(TEST_PARSER_BIN) $(TEST_CODEGEN_BIN) \
-	      $(TEST_LEXER_BIN).d $(TEST_PARSER_BIN).d $(TEST_CODEGEN_BIN).d \
-	      mylang_san $(TEST_LEXER_BIN)_san $(TEST_PARSER_BIN)_san $(TEST_CODEGEN_BIN)_san \
+	rm -f mylang $(OBJS) $(DEPS) $(TEST_LEXER_BIN) $(TEST_PARSER_BIN) $(TEST_CODEGEN_BIN) $(TEST_INDENT_BIN) \
+	      $(TEST_LEXER_BIN).d $(TEST_PARSER_BIN).d $(TEST_CODEGEN_BIN).d $(TEST_INDENT_BIN).d \
+	      mylang_san $(TEST_LEXER_BIN)_san $(TEST_PARSER_BIN)_san $(TEST_CODEGEN_BIN)_san $(TEST_INDENT_BIN)_san \
 	      src/*.o.tmp
 
 demo-gif: mylang

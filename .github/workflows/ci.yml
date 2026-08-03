@@ -35,6 +35,18 @@ jobs:
       - name: Verify game-mode codegen (game.vibes)
         run: ./mylang emit examples/game.vibes > /tmp/game_gen.c
 
+      - name: Bare filename auto-finds examples/ (from repo root)
+        run: |
+          # `mylang emit breakout.vibes` (no path) from the repo root must
+          # fall back to examples/breakout.vibes instead of erroring out.
+          OUT="$(./mylang emit breakout.vibes 2>&1 || true)"
+          echo "$OUT" | grep -q 'InitWindow(800, 600, "Breakout")' || {
+            echo "FAIL: bare filename did not resolve to examples/breakout.vibes"
+            echo "$OUT"
+            exit 1
+          }
+          echo "bare-filename auto-find OK"
+
       - name: Static analysis (clang --analyze)
         run: make analyze
 

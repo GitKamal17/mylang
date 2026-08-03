@@ -86,6 +86,7 @@ static program_t *parse_string(const char *source)
 
 static void test_empty_program(void)
 {
+    TEST("empty program");
     program_t *prog = parse_string("");
     ASSERT_SIZE_EQ(prog->count, 0UL, "stmt count");
     ast_destroy_program(prog);
@@ -94,6 +95,7 @@ static void test_empty_program(void)
 
 static void test_window_stmt(void)
 {
+    TEST("window statement");
     program_t *prog = parse_string("window \"My Game\", 800, 600\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_WINDOW, "type");
@@ -110,7 +112,8 @@ static void test_window_stmt(void)
 
 static void test_fn_decl(void)
 {
-    program_t *prog = parse_string("fn add(a, b) {\n    return a + b\n}\n");
+    TEST("fn declaration");
+    program_t *prog = parse_string("fn add(a, b):\n    return a + b\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_FN, "type");
     stmt_t *fn = prog->stmts[0];
@@ -126,6 +129,7 @@ static void test_fn_decl(void)
 
 static void test_print_stmt(void)
 {
+    TEST("print statement");
     program_t *prog = parse_string("print \"hello\"\nprint result\n");
     ASSERT_SIZE_EQ(prog->count, 2UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_PRINT, "stmt[0] type");
@@ -140,6 +144,7 @@ static void test_print_stmt(void)
 
 static void test_print_multi_arg(void)
 {
+    TEST("print multi-arg");
     program_t *prog = parse_string("print \"Hello, \", name\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_PRINT, "type");
@@ -152,6 +157,7 @@ static void test_print_multi_arg(void)
 
 static void test_var_assign(void)
 {
+    TEST("variable assignment");
     program_t *prog = parse_string("x = 400\nname = \"Kamal\"\n");
     ASSERT_SIZE_EQ(prog->count, 2UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_ASSIGN, "stmt[0] type");
@@ -165,12 +171,12 @@ static void test_var_assign(void)
 
 static void test_if_else(void)
 {
+    TEST("if/else");
     const char *src =
-        "if result > 25 {\n"
+        "if result > 25:\n"
         "    print \"big\"\n"
-        "} else {\n"
-        "    print \"small\"\n"
-        "}\n";
+        "else:\n"
+        "    print \"small\"\n";
     program_t *prog = parse_string(src);
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_IF, "type");
@@ -186,7 +192,8 @@ static void test_if_else(void)
 
 static void test_while_loop(void)
 {
-    program_t *prog = parse_string("while x < 10 {\n    x = x + 1\n}\n");
+    TEST("while loop");
+    program_t *prog = parse_string("while x < 10:\n    x = x + 1\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_WHILE, "type");
     stmt_t *w = prog->stmts[0];
@@ -199,7 +206,8 @@ static void test_while_loop(void)
 
 static void test_for_loop(void)
 {
-    program_t *prog = parse_string("for (i = 0; i < 10; i = i + 1) {\n    print i\n}\n");
+    TEST("for loop");
+    program_t *prog = parse_string("for (i = 0; i < 10; i = i + 1):\n    print i\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_FOR, "type");
     stmt_t *f = prog->stmts[0];
@@ -215,6 +223,7 @@ static void test_for_loop(void)
 
 static void test_fn_call_expr(void)
 {
+    TEST("fn call expression");
     program_t *prog = parse_string("result = add(x, y)\nprint result\n");
     ASSERT_SIZE_EQ(prog->count, 2UL, "stmt count");
     stmt_t *a = prog->stmts[0];
@@ -230,6 +239,7 @@ static void test_fn_call_expr(void)
 
 static void test_legacy_call(void)
 {
+    TEST("legacy space-separated call");
     program_t *prog = parse_string("circle 400, 300, 50, \"red\"\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_CALL, "legacy call type");
@@ -239,7 +249,8 @@ static void test_legacy_call(void)
 
 static void test_event_block(void)
 {
-    program_t *prog = parse_string("on update {\n    draw_circle 400, 300, 50, \"red\"\n}\n");
+    TEST("event block");
+    program_t *prog = parse_string("on update:\n    draw_circle 400, 300, 50, \"red\"\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_EVENT, "type");
     ASSERT_SIZE_EQ(prog->stmts[0]->as.event.body_count, 1UL, "body count");
@@ -250,6 +261,7 @@ static void test_event_block(void)
 
 static void test_sprite_stmt(void)
 {
+    TEST("sprite statement");
     program_t *prog = parse_string("sprite player = \"player.png\"\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_SPRITE, "type");
@@ -265,10 +277,11 @@ static void test_sprite_stmt(void)
     PASS();
 }
 
-static void test_if_legacy_key(void)
+static void test_if_key_condition(void)
 {
-    /* Old-style: if key_right { ... } */
-    program_t *prog = parse_string("if key_right { x = x + 1 }\n");
+    TEST("if with key identifier");
+    /* A bare key name used as a condition: if key_right: ... */
+    program_t *prog = parse_string("if key_right:\n    x = x + 1\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_IF, "type");
     stmt_t *s = prog->stmts[0];
@@ -282,6 +295,7 @@ static void test_if_legacy_key(void)
 
 static void test_dict_literal(void)
 {
+    TEST("dict literal");
     program_t *prog = parse_string("scores = {\"alice\": 95, \"bob\": 87}\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_ASSIGN, "type");
@@ -307,6 +321,7 @@ static void test_dict_literal(void)
 
 static void test_return_stmt(void)
 {
+    TEST("return statement");
     program_t *prog = parse_string("return 42\nreturn\n");
     ASSERT_SIZE_EQ(prog->count, 2UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_RETURN, "stmt[0]");
@@ -319,7 +334,8 @@ static void test_return_stmt(void)
 
 static void test_struct_def(void)
 {
-    program_t *prog = parse_string("struct Point {\n    x\n    y\n}\n");
+    TEST("struct definition");
+    program_t *prog = parse_string("struct Point:\n    x\n    y\n");
     ASSERT_SIZE_EQ(prog->count, 1UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_STRUCT, "type");
     stmt_t *s = prog->stmts[0];
@@ -333,6 +349,7 @@ static void test_struct_def(void)
 
 static void test_dot_method(void)
 {
+    TEST("dot method");
     program_t *prog = parse_string("print name.len\nprint name.upper()\n");
     ASSERT_SIZE_EQ(prog->count, 2UL, "stmt count");
     ASSERT_INT_EQ(prog->stmts[0]->type, STMT_PRINT, "stmt[0] type");
@@ -358,12 +375,11 @@ static void test_dot_method(void)
    "Error [line:col]" reports. */
 static void test_multiple_errors_reported(void)
 {
+    TEST("multiple errors reported");
     const char *src =
         "x = 5 +\n"           /* error 1: missing right operand          */
-        "y =\n"               /* error 2: missing value                  */
-        "fn broken( {\n"      /* error 3: missing function name          */
-        "    print\n"         /* error 4: print with no value            */
-        "}\n"
+        "y =\n"               /* error 2: missing value                  */        "fn broken(:\n"      /* error 3: missing parameter name           */
+        "    print\n"         /* error 4: print with no value                  */
         "z = * 3\n"           /* error 5: invalid expression start       */
         "w = 7\n";            /* valid statement after the errors        */
 
@@ -396,13 +412,12 @@ static void test_multiple_errors_reported(void)
 
     ASSERT_TRUE(parser.had_error, "had_error flag set");
     ASSERT_TRUE(count >= 5, "all errors reported in one pass (not just the first)");
-    /* The 5 errors are on lines 1,2,3,4,6 of the inline source
-       (line 5 is the closing brace of the fn block). */
+    /* The 5 errors are on lines 1,2,3,4,5 of the inline source. */
     ASSERT_TRUE(strstr(buf, "Error [1:") != NULL, "error reported on line 1");
     ASSERT_TRUE(strstr(buf, "Error [2:") != NULL, "error reported on line 2");
     ASSERT_TRUE(strstr(buf, "Error [3:") != NULL, "error reported on line 3");
     ASSERT_TRUE(strstr(buf, "Error [4:") != NULL, "error reported on line 4");
-    ASSERT_TRUE(strstr(buf, "Error [6:") != NULL, "error reported on line 6");
+    ASSERT_TRUE(strstr(buf, "Error [5:") != NULL, "error reported on line 5");
 
     /* Recovery: the valid statement after all errors must still parse. */
     int found_w = 0;
@@ -423,6 +438,7 @@ static void test_multiple_errors_reported(void)
    and verify the imported functions are merged into the program. */
 static void test_import_from_packages(void)
 {
+    TEST("import from packages");
     const char *old_home = getenv("HOME");
     char tmp[256], cmd[512], path[512];
     snprintf(tmp, sizeof tmp, "/tmp/mylang_pkg_%ld", (long)getpid());
@@ -432,12 +448,10 @@ static void test_import_from_packages(void)
     snprintf(path, sizeof path, "%s/.mylang/packages/std/math.vibes", tmp);
     FILE *fp = fopen(path, "w");
     if (fp) {
-        fputs("fn distance(x1, y1, x2, y2) {\n"
+        fputs("fn distance(x1, y1, x2, y2):\n"
               "    return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))\n"
-              "}\n"
-              "fn lerp(a, b, t) {\n"
-              "    return a + (b - a) * t\n"
-              "}\n", fp);
+              "fn lerp(a, b, t):\n"
+              "    return a + (b - a) * t\n", fp);
         fclose(fp);
     }
 
@@ -474,7 +488,7 @@ int main(void)
     test_legacy_call();
     test_event_block();
     test_sprite_stmt();
-    test_if_legacy_key();
+    test_if_key_condition();
     test_return_stmt();
     test_dict_literal();
     test_dot_method();

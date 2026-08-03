@@ -12,6 +12,8 @@ static void     skip_whitespace(lexer_t *lexer);
 static void     skip_comment(lexer_t *lexer);
 static token_t  make_token(lexer_t *lexer, token_type_t type);
 static token_t  error_token(lexer_t *lexer, const char *message);
+static token_t  error_token_at(const char *message, int line, int column);
+static token_t  indent_token(lexer_t *lexer, token_type_t type);
 static bool     is_keyword(const char *start, size_t length);
 static token_t  read_identifier(lexer_t *lexer);
 static token_t  read_number(lexer_t *lexer);
@@ -20,6 +22,7 @@ static char     advance(lexer_t *lexer);
 static char     peek(lexer_t *lexer);
 static char     peek_next(lexer_t *lexer);
 static bool     is_at_end(lexer_t *lexer);
+static int      lexer_measure_indent(lexer_t *lexer);
 
 /* ------------------------------------------------------------------ *
  * Public API                                                         *
@@ -31,17 +34,73 @@ void lexer_init(lexer_t *lexer, const char *source)
     lexer->current = source;
     lexer->line    = 1;
     lexer->column  = 1;
+
+    /* Indentation tracking state: stack starts at level 0, and the very
+       first line's leading whitespace must be measured. */
+    lexer->indent_stack[0] = 0;
+    lexer->indent_depth    = 1;
+    lexer->indent_pending  = 1;
+    lexer->pending_indent  = 0;
+    lexer->pending_dedents = 0;
+    lexer->pending_error   = NULL;
+    lexer->err_line        = 1;
+    lexer->err_col         = 1;
+    lexer->indent_pos      = source;
+    lexer->indent_line     = 1;
+    lexer->indent_col      = 1;
+    lexer->indent_width    = 0;
 }
 
 token_t lexer_next(lexer_t *lexer)
 {
+    /* Emit queued DEDENT tokens one at a time (one per level popped). */
+    if (lexer->pending_dedents > 0) {
+        lexer->pending_dedents--;
+        return indent_token(lexer, TOKEN_DEDENT);
+    }
+    if (lexer->pending_indent) {
+        lexer->pending_indent = 0;
+        return indent_token(lexer, TOKEN_INDENT);
+    }
+    if (lexer->pending_error) {
+        const char *msg = lexer->pending_error;
+        lexer->pending_error = NULL;
+        return error_token_at(msg, lexer->err_line, lexer->err_col);
+    }
+
+    /* At the start of a logical line, measure the indentation first. */
+    if (lexer->indent_pending) {
+        lexer->indent_pending = 0;
+        if (lexer_measure_indent(lexer)) {
+            /* An INDENT / DEDENT / ERROR token was queued — emit it. */
+            return lexer_next(lexer);
+        }
+    }
+
     skip_whitespace(lexer);
+
+    /* Inline tabs are rejected outright (tabs-vs-spaces policy). */
+    if (lexer->pending_error) {
+        const char *msg = lexer->pending_error;
+        lexer->pending_error = NULL;
+        return error_token_at(msg, lexer->err_line, lexer->err_col);
+    }
 
     /* Remember the start of this token (after whitespace). */
     lexer->start = lexer->current;
 
-    if (is_at_end(lexer))
+    if (is_at_end(lexer)) {
+        /* EOF: emit enough DEDENTs to pop the indentation stack to 0. */
+        if (lexer->indent_depth > 1) {
+            lexer->pending_dedents = lexer->indent_depth - 1;
+            lexer->indent_depth    = 1;
+            lexer->indent_pos   = lexer->current;
+            lexer->indent_line  = lexer->line;
+            lexer->indent_col   = lexer->column;
+            return lexer_next(lexer);
+        }
         return make_token(lexer, TOKEN_EOF);
+    }
 
     char c = peek(lexer);
 
@@ -119,6 +178,8 @@ token_t lexer_next(lexer_t *lexer)
         /* The newline terminates the previous line; report that line so
            errors at the end of a line point at the right source line. */
         tok.line--;
+        /* The next logical line starts right after this newline. */
+        lexer->indent_pending = 1;
         return tok;
     }
 
@@ -175,6 +236,8 @@ const char *token_type_name(token_type_t type)
     case TOKEN_RBRACKET:   return "RBRACKET";
     case TOKEN_COLON:      return "COLON";
     case TOKEN_DOT:        return "DOT";
+    case TOKEN_INDENT:     return "INDENT";
+    case TOKEN_DEDENT:     return "DEDENT";
     default:               return "UNKNOWN";
     }
 }
@@ -237,9 +300,13 @@ const char *token_type_explain(token_type_t type)
     case TOKEN_RBRACKET:
         return "] — Closes an array literal or index access";
     case TOKEN_COLON:
-        return ": — Separates keys from values in a dictionary (e.g. {\"key\": value})";
+        return ": — ends a block header (e.g. 'if x > 5:', 'fn add(a, b):') or separates keys from values in a dictionary (e.g. {\"key\": value})";
     case TOKEN_DOT:
         return ". — Accesses a field or method on an object (e.g. obj.field, str.len)";
+    case TOKEN_INDENT:
+        return "INDENT — the line is indented deeper than the previous block; opens an indented block";
+    case TOKEN_DEDENT:
+        return "DEDENT — the line returns to an outer indentation level; closes the current block";
     default:
         return "Unknown token type";
     }
@@ -301,14 +368,31 @@ static token_t make_token(lexer_t *lexer, token_type_t type)
     return tok;
 }
 
-static token_t error_token(lexer_t *lexer, const char *message)
+static token_t error_token_at(const char *message, int line, int column)
 {
     token_t tok;
     tok.type   = TOKEN_ERROR;
     tok.start  = message;
     tok.length = strlen(message);
-    tok.line   = lexer->line;
-    tok.column = lexer->column;
+    tok.line   = line;
+    tok.column = column;
+    return tok;
+}
+
+static token_t error_token(lexer_t *lexer, const char *message)
+{
+    return error_token_at(message, lexer->line, lexer->column);
+}
+
+/* Build an INDENT / DEDENT token from the recorded indentation position. */
+static token_t indent_token(lexer_t *lexer, token_type_t type)
+{
+    token_t tok;
+    tok.type   = type;
+    tok.start  = lexer->indent_pos;
+    tok.length = (type == TOKEN_INDENT) ? (size_t)lexer->indent_width : 0;
+    tok.line   = lexer->indent_line;
+    tok.column = lexer->indent_col;
     return tok;
 }
 
@@ -352,10 +436,22 @@ static void skip_whitespace(lexer_t *lexer)
         char c = peek(lexer);
         switch (c) {
         case ' ':
-        case '\t':
         case '\r':
             advance(lexer);
             break;
+        case '\t':
+            /* Tabs-vs-spaces policy: tabs are rejected in code entirely
+               (they remain legal inside string literals, which are read
+               without going through skip_whitespace).  Report once, then
+               move past so lexing can continue. */
+            if (!lexer->pending_error) {
+                lexer->pending_error =
+                    "tab character in code — MyLang uses spaces";
+                lexer->err_line = lexer->line;
+                lexer->err_col  = lexer->column;
+            }
+            advance(lexer);
+            return;
         default:
             return;
         }
@@ -426,4 +522,96 @@ static token_t read_string(lexer_t *lexer)
     token_t tok = make_token(lexer, TOKEN_STRING);
     tok.length  = len;
     return tok;
+}
+
+/* ------------------------------------------------------------------ *
+ * Indentation tracking (Python-style INDENT/DEDENT generation)       *
+ * ------------------------------------------------------------------ *
+ * Called once per logical line, before any tokens on that line are    *
+ * lexed.  Consumes the line's leading whitespace and compares its      *
+ * width against the indent stack:                                    *
+ *   deeper  -> push width, queue one TOKEN_INDENT                    *
+ *   shallower -> pop to the matching level, queue one TOKEN_DEDENT    *
+ *               per level popped                                      *
+ *   no match -> queue "inconsistent indentation" error               *
+ * Blank lines and comment-only lines are ignored for this purpose.    *
+ *                                                                     *
+ * Returns 1 if a token was queued (INDENT / DEDENT(s) / ERROR), else  *
+ * 0 (blank, comment-only, or unchanged indentation).                  *
+ *                                                                     *
+ * Tabs-vs-spaces policy: tabs are rejected in code entirely (see       *
+ * skip_whitespace for inline tabs) — this sidesteps Python's classic   *
+ * tab/space mixing bugs.  Tabs inside string literals are allowed.     *
+ * ------------------------------------------------------------------ */
+static int lexer_measure_indent(lexer_t *lexer)
+{
+    const char *pos  = lexer->current;   /* start of the line's whitespace */
+    int         line = lexer->line;
+    int         col  = lexer->column;
+    int         width = 0;
+
+    /* Count leading spaces (tolerate a stray \r, e.g. CRLF files). */
+    for (;;) {
+        char c = peek(lexer);
+        if (c == ' ')      { ++width; advance(lexer); }
+        else if (c == '\r'){ advance(lexer); }
+        else break;
+    }
+
+    /* Tabs are not allowed in indentation. */
+    if (peek(lexer) == '\t') {
+        lexer->pending_error =
+            "tab character in indentation — MyLang indentation must use spaces";
+        lexer->err_line = line;
+        lexer->err_col  = lexer->column;   /* the tab's column */
+        return 1;
+    }
+
+    /* Blank lines and comment-only lines have no indentation significance. */
+    {
+        char c = peek(lexer);
+        if (c == '\n' || c == '\0' || c == '#' ||
+            (c == '/' && peek_next(lexer) == '/'))
+            return 0;
+    }
+
+    /* Record where the INDENT/DEDENT tokens should point. */
+    lexer->indent_pos  = pos;
+    lexer->indent_line = line;
+    lexer->indent_col  = col;
+
+    int top = lexer->indent_stack[lexer->indent_depth - 1];
+
+    if (width > top) {
+        /* Deeper: push and emit INDENT. */
+        if (lexer->indent_depth >= MYLANG_MAX_INDENT) {
+            lexer->pending_error = "indentation too deep (max 64 levels)";
+            lexer->err_line = line;
+            lexer->err_col  = col;
+            return 1;
+        }
+        lexer->indent_stack[lexer->indent_depth++] = width;
+        lexer->pending_indent = 1;
+        lexer->indent_width   = width;
+        return 1;
+    }
+
+    if (width < top) {
+        /* Shallower: pop until a matching level is found. */
+        int i = lexer->indent_depth - 1;
+        while (i >= 0 && lexer->indent_stack[i] != width)
+            --i;
+        if (i < 0) {
+            lexer->pending_error = "inconsistent indentation";
+            lexer->err_line = line;
+            lexer->err_col  = col;
+            return 1;
+        }
+        lexer->pending_dedents = (lexer->indent_depth - 1) - i;
+        lexer->indent_depth    = i + 1;
+        return 1;
+    }
+
+    /* width == top: no indentation change. */
+    return 0;
 }

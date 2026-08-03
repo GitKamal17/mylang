@@ -74,6 +74,7 @@ static char *parse_and_codegen(const char *source)
 
 static void test_gen_empty(void)
 {
+    TEST("gen: empty program");
     char *out = parse_and_codegen("");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "#include <stdio.h>", "stdio include");
@@ -85,10 +86,10 @@ static void test_gen_empty(void)
 
 static void test_gen_fn_print(void)
 {
+    TEST("gen: fn + print");
     const char *src =
-        "fn add(a, b) {\n"
+        "fn add(a, b):\n"
         "    return a + b\n"
-        "}\n"
         "x = 10\n"
         "y = 20\n"
         "result = add(x, y)\n"
@@ -106,6 +107,7 @@ static void test_gen_fn_print(void)
 
 static void test_gen_print_string(void)
 {
+    TEST("gen: print string");
     char *out = parse_and_codegen("print \"hello world\"\n");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "printf(\"%s\\n\", \"hello world\")", "string print");
@@ -115,6 +117,7 @@ static void test_gen_print_string(void)
 
 static void test_gen_print_multi(void)
 {
+    TEST("gen: print multi");
     char *out = parse_and_codegen("print \"Hello, \", name\n");
     ASSERT_NOT_NULL(out, "output non-null");
     /* name is undeclared -> infer_type defaults to TYPE_INT -> %d */
@@ -125,6 +128,7 @@ static void test_gen_print_multi(void)
 
 static void test_gen_print_multi_with_decl(void)
 {
+    TEST("gen: print multi with decl");
     char *out = parse_and_codegen(
         "name = \"Kamal\"\n"
         "print \"Hello, \", name\n");
@@ -137,6 +141,7 @@ static void test_gen_print_multi_with_decl(void)
 
 static void test_gen_var_types(void)
 {
+    TEST("gen: var types");
     const char *src =
         "name = \"Kamal\"\n"
         "x = 10\n"
@@ -152,12 +157,12 @@ static void test_gen_var_types(void)
 
 static void test_gen_if_else(void)
 {
+    TEST("gen: if/else");
     const char *src =
-        "if x > 5 {\n"
+        "if x > 5:\n"
         "    print \"big\"\n"
-        "} else {\n"
-        "    print \"small\"\n"
-        "}\n";
+        "else:\n"
+        "    print \"small\"\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "if ((x > 5))", "if condition");
@@ -170,6 +175,7 @@ static void test_gen_if_else(void)
 
 static void test_game_window(void)
 {
+    TEST("game: window");
     char *out = parse_and_codegen("window \"My Game\", 800, 600\n");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "#include \"raylib.h\"", "raylib include");
@@ -181,6 +187,7 @@ static void test_game_window(void)
 
 static void test_game_draw_circle(void)
 {
+    TEST("game: draw_circle");
     char *out = parse_and_codegen("draw_circle 400, 300, 50, \"red\"\n");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "DrawCircle(400, 300, 50, RED)", "DrawCircle");
@@ -190,6 +197,7 @@ static void test_game_draw_circle(void)
 
 static void test_game_circle_alias(void)
 {
+    TEST("game: circle alias");
     char *out = parse_and_codegen("circle 200, 100, 25, \"blue\"\n");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "DrawCircle(200, 100, 25, BLUE)", "circle alias");
@@ -199,11 +207,11 @@ static void test_game_circle_alias(void)
 
 static void test_game_event(void)
 {
+    TEST("game: event block");
     const char *src =
         "window \"Test\", 640, 480\n"
-        "on update {\n"
-        "    draw_circle 100, 200, 25, \"blue\"\n"
-        "}\n";
+        "on update:\n"
+        "    draw_circle 100, 200, 25, \"blue\"\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "InitWindow(640, 480, \"Test\")", "InitWindow");
@@ -218,14 +226,15 @@ static void test_game_event(void)
 
 static void test_game_vars_and_keys(void)
 {
+    TEST("game: vars and keys");
     const char *src =
         "window \"G\", 800, 600\n"
         "x = 400\n"
         "y = 300\n"
-        "on update {\n"
-        "    if key_right { x = x + 5 }\n"
-        "    circle x, y, 30, \"red\"\n"
-        "}\n";
+        "on update:\n"
+        "    if key_right:\n"
+        "        x = x + 5\n"
+        "    circle x, y, 30, \"red\"\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "int x = 400;", "int x");
@@ -239,12 +248,14 @@ static void test_game_vars_and_keys(void)
 
 static void test_game_sprite(void)
 {
+    TEST("game: sprite");
     const char *src =
         "window \"Sprite Demo\", 800, 600\n"
         "sprite player = \"player.png\"\n"
         "x = 400\n"
         "y = 300\n"
-        "if key_right { x = x + 5 }\n"
+        "if key_right:\n"
+        "    x = x + 5\n"
         "draw_sprite player, x, y\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
@@ -260,12 +271,14 @@ static void test_game_sprite(void)
 
 static void test_game_sound(void)
 {
+    TEST("game: sound");
     const char *src =
         "window \"Sound Demo\", 800, 600\n"
         "jump = load_sound(\"jump.wav\")\n"
         "play_music \"bgm.ogg\"\n"
         "x = 400\n"
-        "if key_right { x = x + 5 }\n"
+        "if key_right:\n"
+        "    x = x + 5\n"
         "play_sound jump\n"
         "draw_circle x, 300, 30, \"red\"\n";
     char *out = parse_and_codegen(src);
@@ -294,6 +307,7 @@ static void test_game_sound(void)
 
 static void test_game_sound_parens(void)
 {
+    TEST("game: sound (parens)");
     /* The prompt's literal syntax: parenthesized calls. */
     const char *src =
         "window \"Sound Demo\", 800, 600\n"
@@ -323,13 +337,17 @@ static void test_game_sound_parens(void)
 
 static void test_game_collision(void)
 {
+    TEST("game: collision");
     const char *src =
         "window \"Collision Demo\", 800, 600\n"
         "x = 400\n"
         "y = 300\n"
-        "if collide_circle(x, y, 30, 200, 200, 30) { x = 100 }\n"
-        "if collide_rect(0, 0, 50, 50, 60, 60, 40, 40) { y = 100 }\n"
-        "if collide_point(x, y, 100, 100, 200, 200) { x = 50 }\n";
+        "if collide_circle(x, y, 30, 200, 200, 30):\n"
+        "    x = 100\n"
+        "if collide_rect(0, 0, 50, 50, 60, 60, 40, 40):\n"
+        "    y = 100\n"
+        "if collide_point(x, y, 100, 100, 200, 200):\n"
+        "    x = 50\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "#include \"raylib.h\"", "raylib include");
@@ -356,18 +374,27 @@ static void test_game_collision(void)
 
 static void test_game_mouse_keys(void)
 {
+    TEST("game: mouse keys");
     const char *src =
         "window \"Mouse Demo\", 800, 600\n"
         "x = 400\n"
         "y = 300\n"
-        "if key_space { x = 100 }\n"
-        "if key_enter { y = 100 }\n"
-        "if key_w { y = y - 5 }\n"
-        "if key_a { x = x - 5 }\n"
-        "if key_s { y = y + 5 }\n"
-        "if key_d { x = x + 5 }\n"
-        "if mouse_down { x = mouse_x }\n"
-        "if mouse_click { y = mouse_y }\n"
+        "if key_space:\n"
+        "    x = 100\n"
+        "if key_enter:\n"
+        "    y = 100\n"
+        "if key_w:\n"
+        "    y = y - 5\n"
+        "if key_a:\n"
+        "    x = x - 5\n"
+        "if key_s:\n"
+        "    y = y + 5\n"
+        "if key_d:\n"
+        "    x = x + 5\n"
+        "if mouse_down:\n"
+        "    x = mouse_x\n"
+        "if mouse_click:\n"
+        "    y = mouse_y\n"
         "circle mouse_x, mouse_y, 30, \"red\"\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
@@ -389,6 +416,7 @@ static void test_game_mouse_keys(void)
 
 static void test_game_draw_rect(void)
 {
+    TEST("game: draw_rect");
     const char *src =
         "window \"Rect Demo\", 800, 600\n"
         "draw_rect 20, 30, 100, 50, \"red\"\n"
@@ -403,6 +431,7 @@ static void test_game_draw_rect(void)
 
 static void test_gen_array_literal(void)
 {
+    TEST("gen: array literal");
     char *out = parse_and_codegen("numbers = [10, 20, 30]\n");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "int numbers[] = {10, 20, 30};", "array decl");
@@ -412,6 +441,7 @@ static void test_gen_array_literal(void)
 
 static void test_gen_array_index(void)
 {
+    TEST("gen: array index");
     const char *src =
         "numbers = [10, 20, 30]\n"
         "print numbers[0]\n";
@@ -425,6 +455,7 @@ static void test_gen_array_index(void)
 
 static void test_gen_input_builtin(void)
 {
+    TEST("gen: input");
     char *out = parse_and_codegen("name = input(\"Enter name: \")\n");
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "printf(\"Enter name: \");", "input prompt");
@@ -437,6 +468,7 @@ static void test_gen_input_builtin(void)
 
 static void test_gen_write_file(void)
 {
+    TEST("gen: write_file");
     char *out = parse_and_codegen(
         "write_file(\"output.txt\", \"hello\")\n");
     ASSERT_NOT_NULL(out, "output non-null");
@@ -451,6 +483,7 @@ static void test_gen_write_file(void)
 
 static void test_gen_dict_literal(void)
 {
+    TEST("gen: dict literal");
     char *out = parse_and_codegen(
         "scores = {\"alice\": 95, \"bob\": 87}\n");
     ASSERT_NOT_NULL(out, "output non-null");
@@ -465,6 +498,7 @@ static void test_gen_dict_literal(void)
 
 static void test_gen_dict_index(void)
 {
+    TEST("gen: dict index");
     const char *src =
         "scores = {\"alice\": 95}\n"
         "print scores[\"alice\"]\n";
@@ -479,14 +513,13 @@ static void test_gen_dict_index(void)
 
 static void test_break_in_while(void)
 {
+    TEST("break in while");
     const char *src =
         "x = 0\n"
-        "while x < 10 {\n"
-        "    if x > 5 {\n"
+        "while x < 10:\n"
+        "    if x > 5:\n"
         "        break\n"
-        "    }\n"
-        "    x = x + 1\n"
-        "}\n";
+        "    x = x + 1\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "    break;", "break in while");
@@ -497,13 +530,12 @@ static void test_break_in_while(void)
 
 static void test_continue_in_for(void)
 {
+    TEST("continue in for");
     const char *src =
-        "for (i = 0; i < 10; i = i + 1) {\n"
-        "    if i == 5 {\n"
+        "for (i = 0; i < 10; i = i + 1):\n"
+        "    if i == 5:\n"
         "        continue\n"
-        "    }\n"
-        "    print i\n"
-        "}\n";
+        "    print i\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "    continue;", "continue in for");
@@ -514,6 +546,7 @@ static void test_continue_in_for(void)
 
 static void test_break_outside_loop_error(void)
 {
+    TEST("break outside loop -> error");
     lexer_t  lexer;
     parser_t parser;
     lexer_init(&lexer, "break\n");
@@ -526,6 +559,7 @@ static void test_break_outside_loop_error(void)
 
 static void test_continue_outside_loop_error(void)
 {
+    TEST("continue outside loop -> error");
     lexer_t  lexer;
     parser_t parser;
     lexer_init(&lexer, "continue\n");
@@ -538,13 +572,12 @@ static void test_continue_outside_loop_error(void)
 
 static void test_break_continue_in_nested_loop(void)
 {
+    TEST("break/continue in nested loop");
     const char *src =
-        "for (i = 0; i < 10; i = i + 1) {\n"
-        "    while 1 {\n"
+        "for (i = 0; i < 10; i = i + 1):\n"
+        "    while 1:\n"
         "        break\n"
-        "        continue\n"
-        "    }\n"
-        "}\n";
+        "        continue\n";
     char *out = parse_and_codegen(src);
     ASSERT_NOT_NULL(out, "output non-null");
     ASSERT_STR_CONTAINS(out, "    break;", "break in nested");
@@ -556,6 +589,7 @@ static void test_break_continue_in_nested_loop(void)
 
 static void test_str_len(void)
 {
+    TEST("str.len");
     const char *src = "name = \"Hello\"\nprint name.len\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -567,6 +601,7 @@ static void test_str_len(void)
 
 static void test_str_upper(void)
 {
+    TEST("str.upper");
     const char *src = "name = \"hello\"\nprint name.upper()\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -578,6 +613,7 @@ static void test_str_upper(void)
 
 static void test_str_lower(void)
 {
+    TEST("str.lower");
     const char *src = "name = \"HELLO\"\nprint name.lower()\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -588,6 +624,7 @@ static void test_str_lower(void)
 
 static void test_str_contains(void)
 {
+    TEST("str.contains");
     const char *src = "name = \"Hello\"\nprint name.contains(\"ell\")\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -598,6 +635,7 @@ static void test_str_contains(void)
 
 static void test_str_concat(void)
 {
+    TEST("string concat");
     const char *src = "print \"Hello, \" + \"World\"\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -608,6 +646,7 @@ static void test_str_concat(void)
 
 static void test_read_file(void)
 {
+    TEST("read_file");
     const char *src = "contents = read_file(\"file.txt\")\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -621,7 +660,8 @@ static void test_read_file(void)
 
 static void test_file_exists(void)
 {
-    const char *src = "if file_exists(\"file.txt\") {\n    print \"exists\"\n}\n";
+    TEST("file_exists");
+    const char *src = "if file_exists(\"file.txt\"):\n    print \"exists\"\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "file_exists(\"file.txt\")", "file_exists call");
@@ -632,6 +672,7 @@ static void test_file_exists(void)
 
 static void test_append_file(void)
 {
+    TEST("append_file");
     const char *src = "append_file(\"log.txt\", \"data\")\n";
     char *gen = parse_and_codegen(src);
     ASSERT_NOT_NULL(gen, "output non-null");
@@ -646,6 +687,7 @@ static void test_append_file(void)
 
 static void test_builtin_sqrt(void)
 {
+    TEST("builtin: sqrt");
     char *gen = parse_and_codegen("print sqrt(144)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "#include <math.h>", "math.h include");
@@ -655,6 +697,7 @@ static void test_builtin_sqrt(void)
 
 static void test_builtin_sin_cos(void)
 {
+    TEST("builtin: sin/cos");
     char *gen = parse_and_codegen("print sin(0.5) + cos(0.5)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "sin(0.5)", "sin");
@@ -664,6 +707,7 @@ static void test_builtin_sin_cos(void)
 
 static void test_builtin_min_max(void)
 {
+    TEST("builtin: min/max");
     char *gen = parse_and_codegen("print min(10, 20)\nprint max(10, 20)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "(10 < 20 ? 10 : 20)", "min ternary");
@@ -673,6 +717,7 @@ static void test_builtin_min_max(void)
 
 static void test_builtin_clamp(void)
 {
+    TEST("builtin: clamp");
     char *gen = parse_and_codegen("print clamp(5, 0, 10)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     /* clamp is inlined as a ternary chain */
@@ -682,6 +727,7 @@ static void test_builtin_clamp(void)
 
 static void test_builtin_random(void)
 {
+    TEST("builtin: random");
     char *gen = parse_and_codegen("print random()\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "RAND_MAX", "random uses RAND_MAX");
@@ -690,6 +736,7 @@ static void test_builtin_random(void)
 
 static void test_builtin_random_int(void)
 {
+    TEST("builtin: random_int");
     char *gen = parse_and_codegen("print random_int(1, 6)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "rand()", "random_int uses rand");
@@ -698,6 +745,7 @@ static void test_builtin_random_int(void)
 
 static void test_builtin_to_int_double(void)
 {
+    TEST("builtin: to_int/to_double");
     char *gen = parse_and_codegen("x = to_int(3.14)\ny = to_double(42)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "(int)(3.14)", "to_int");
@@ -707,6 +755,7 @@ static void test_builtin_to_int_double(void)
 
 static void test_builtin_to_string(void)
 {
+    TEST("builtin: to_string");
     char *gen = parse_and_codegen("print to_string(42)\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "to_string(42)", "to_string call");
@@ -716,6 +765,7 @@ static void test_builtin_to_string(void)
 
 static void test_builtin_sleep_time(void)
 {
+    TEST("builtin: sleep/time");
     char *gen = parse_and_codegen("sleep(100)\nprint time()\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "#include <time.h>", "time.h include");
@@ -727,7 +777,8 @@ static void test_builtin_sleep_time(void)
 
 static void test_builtin_file_exists(void)
 {
-    char *gen = parse_and_codegen("if file_exists(\"x.txt\") { print \"y\" }\n");
+    TEST("builtin: file_exists");
+    char *gen = parse_and_codegen("if file_exists(\"x.txt\"):\n    print \"y\"\n");
     ASSERT_NOT_NULL(gen, "output non-null");
     ASSERT_STR_CONTAINS(gen, "file_exists(\"x.txt\")", "file_exists call");
     ASSERT_STR_CONTAINS(gen, "static int file_exists", "file_exists helper");
@@ -736,11 +787,11 @@ static void test_builtin_file_exists(void)
 
 static void test_struct_def_and_use(void)
 {
+    TEST("struct def and use");
     const char *src =
-        "struct Point {\n"
+        "struct Point:\n"
         "    x\n"
         "    y\n"
-        "}\n"
         "p = Point(10, 20)\n"
         "print p.x\n";
     char *gen = parse_and_codegen(src);
@@ -756,6 +807,7 @@ static void test_struct_def_and_use(void)
    verify the emitted C contains the deduplicated std functions. */
 static void test_import_std_math(void)
 {
+    TEST("import std/math");
     const char *old_home = getenv("HOME");
     char tmp[256], cmd[512], path[512];
     snprintf(tmp, sizeof tmp, "/tmp/mylang_cg_%ld", (long)getpid());
@@ -765,12 +817,10 @@ static void test_import_std_math(void)
     snprintf(path, sizeof path, "%s/.mylang/packages/std/math.vibes", tmp);
     FILE *fp = fopen(path, "w");
     if (fp) {
-        fputs("fn distance(x1, y1, x2, y2) {\n"
+        fputs("fn distance(x1, y1, x2, y2):\n"
               "    return sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1))\n"
-              "}\n"
-              "fn lerp(a, b, t) {\n"
-              "    return a + (b - a) * t\n"
-              "}\n", fp);
+              "fn lerp(a, b, t):\n"
+              "    return a + (b - a) * t\n", fp);
         fclose(fp);
     }
 

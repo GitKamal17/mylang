@@ -11,12 +11,14 @@ mylang
 test_lexer
 test_parser
 test_codegen
+test_indent
 
 # Sanitizer builds (make sanitize)
 mylang_san
 test_lexer_san
 test_parser_san
 test_codegen_san
+test_indent_san
 
 # Temp / generated files
 /tmp/

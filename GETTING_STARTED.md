@@ -38,9 +38,9 @@ that reads text and writes C. That's it.
 
 | 🕹️ Game mode | 📦 General purpose |
 |---|---|
-| `window "Pong", 800, 600` | `fn add(a, b) { return a + b }` |
+| `window "Pong", 800, 600` | `fn add(a, b):`<br>&nbsp;&nbsp;&nbsp;&nbsp;`return a + b` |
 | `circle x, y, 30, "red"` | `print "Hello, ", name` |
-| `if key_right { x = x + 5 }` | `if x > 10 { } else { }` |
+| `if key_right:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`x = x + 5` | `if x > 10:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...`<br>`else:`<br>&nbsp;&nbsp;&nbsp;&nbsp;`...` |
 | `sprite player = "player.png"` | `scores = {"alice": 95}` |
 | Uses **Raylib** for graphics | Uses plain C + stdlib |
 
@@ -146,7 +146,7 @@ mylang/
 
 ```bash
 make              # builds ./mylang (should print zero warnings)
-make test         # optional: runs all 92 automated tests
+make test         # optional: runs all 110 automated tests
 sudo make install # optional: puts `mylang` on your PATH
 ```
 
@@ -223,9 +223,8 @@ age = age + 1
 ### Functions
 
 ```vibes
-fn add(a, b) {
+fn add(a, b):
     return a + b
-}
 
 result = add(2, 3)
 print result      # prints 5
@@ -236,13 +235,12 @@ print result      # prints 5
 ```vibes
 score = 85
 
-if score > 90 {
+if score > 90:
     print "Excellent!"
-} else if score > 70 {
+else if score > 70:
     print "Good job!"
-} else {
+else:
     print "Keep practicing!"
-}
 ```
 
 ### Loops
@@ -250,15 +248,13 @@ if score > 90 {
 ```vibes
 # while loop
 i = 0
-while i < 5 {
+while i < 5:
     print i
     i = i + 1
-}
 
 # for loop
-for i = 0, i < 5, i = i + 1 {
+for (i = 0; i < 5; i = i + 1):
     print i
-}
 ```
 
 ### Lists (arrays)
@@ -299,9 +295,8 @@ write_file("note.txt", "My first file!")
 contents = read_file("note.txt")
 print contents
 
-if file_exists("note.txt") {
+if file_exists("note.txt"):
     print "It exists!"
-}
 ```
 
 ### Math
@@ -328,10 +323,14 @@ window "Movable Ball", 800, 600
 x = 400
 y = 300
 
-if key_right { x = x + 5 }
-if key_left  { x = x - 5 }
-if key_up    { y = y - 5 }
-if key_down  { y = y + 5 }
+if key_right:
+    x = x + 5
+if key_left:
+    x = x - 5
+if key_up:
+    y = y - 5
+if key_down:
+    y = y + 5
 
 circle x, y, 30, "red"
 ```
@@ -389,7 +388,8 @@ draw_rect 100, 100, 200, 50, "green" # DrawRectangle(100, 100, 200, 50, GREEN);
 | `key_enter` | Enter key |
 
 ```vibes
-if key_space { print "Jump!" }
+if key_space:
+    print "Jump!"
 ```
 
 ### Mouse input
@@ -397,8 +397,10 @@ if key_space { print "Jump!" }
 ```vibes
 x = mouse_x        # GetMouseX()
 y = mouse_y        # GetMouseY()
-if mouse_down { print "Left button held" }
-if mouse_click { print "Clicked!" }
+if mouse_down:
+    print "Left button held"
+if mouse_click:
+    print "Clicked!"
 ```
 
 ### Sprites (images)
@@ -418,9 +420,8 @@ play_music("theme.mp3")        # loops background music
 ### Collision detection
 
 ```vibes
-if collide_circle(x1, y1, r1, x2, y2, r2) {
+if collide_circle(x1, y1, r1, x2, y2, r2):
     print "Circles collided!"
-}
 ```
 
 ### Complete mini-game: catch the point
@@ -436,17 +437,20 @@ target_x = 100
 target_y = 100
 score = 0
 
-if key_right { x = x + 5 }
-if key_left  { x = x - 5 }
-if key_up    { y = y - 5 }
-if key_down  { y = y + 5 }
+if key_right:
+    x = x + 5
+if key_left:
+    x = x - 5
+if key_up:
+    y = y - 5
+if key_down:
+    y = y + 5
 
-if collide_circle(x, y, 20, target_x, target_y, 20) {
+if collide_circle(x, y, 20, target_x, target_y, 20):
     score = score + 1
     target_x = random_int(50, 750)
     target_y = random_int(50, 550)
     print "Score: ", score    # note: score prints to the terminal
-}
 
 circle x, y, 20, "white"
 circle target_x, target_y, 20, "red"
@@ -456,6 +460,9 @@ Move the white circle with the arrow keys and touch the red dot to score!
 
 > More complete games live in `examples/` — `pong.vibes`, `breakout.vibes`,
 > and `platformer.vibes` are full, playable games you can read and modify.
+>
+> **Tip:** from the repo root you can run them by bare name — `mylang run
+> breakout.vibes` automatically finds `examples/breakout.vibes` for you.
 
 ---
 
@@ -474,7 +481,7 @@ variable, string, etc.) but found something else.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `expected expression` | A missing value — e.g. `x =` with nothing after it | Give it a value: `x = 400` |
-| `expected X, got Y` | Wrong syntax — a typo or missing `{` / `}` | Check the line the error points to |
+| `expected X, got Y` | Wrong syntax — a typo, or a block header missing its `:` | Check the line the error points to |
 | `parse failed` | Any syntax error — the parser stops safely | Fix the first error and re-run |
 | Game compiles but window never opens | Raylib not installed | `brew install raylib` |
 | `Undefined symbols` at compile time | Raylib library missing in the link step | Reinstall Raylib, then re-run |

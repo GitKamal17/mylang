@@ -13,52 +13,49 @@ py = 100
 vy = 0
 on_ground = 0
 
-on update {
+on update:
     # ---- Gravity ----
     vy = vy + 1
     py = py + vy
 
     # ---- Horizontal movement ----
-    if key_right { px = px + 5 }
-    if key_left  { px = px - 5 }
+    if key_right:
+        px = px + 5
+    if key_left:
+        px = px - 5
 
     # ---- Keep on screen ----
-    if px < 0 { px = 0 }
-    if px > 760 { px = 760 }
+    if px < 0:
+        px = 0
+    if px > 760:
+        px = 760
 
     # ---- Land on the ground (bottom strip) ----
-    if collide_rect(px, py, 40, 40, 0, 560, 800, 40) {
+    if collide_rect(px, py, 40, 40, 0, 560, 800, 40):
         py = 560 - 40
         vy = 0
         on_ground = 1
-    }
     # ---- Land on platforms (only while falling) ----
-    if collide_rect(px, py, 40, 40, 250, 400, 200, 20) {
+    if collide_rect(px, py, 40, 40, 250, 400, 200, 20):
         py = 400 - 40
         vy = 0
         on_ground = 1
-    }
-    if collide_rect(px, py, 40, 40, 550, 300, 180, 20) {
+    if collide_rect(px, py, 40, 40, 550, 300, 180, 20):
         py = 300 - 40
         vy = 0
         on_ground = 1
-    }
 
     # ---- Jump (only when on the ground) ----
-    if key_space {
-        if on_ground == 1 {
+    if key_space:
+        if on_ground == 1:
             vy = 0 - 14
             on_ground = 0
-        }
-    }
 
     # ---- Fell off the world → respawn ----
-    if py > 700 {
+    if py > 700:
         px = 100
         py = 100
         vy = 0
-    }
-}
 
 # ---- Draw everything ----
 draw_rect px, py, 40, 40, "skyblue"

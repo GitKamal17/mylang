@@ -194,6 +194,10 @@ static void advance(parser_t *p)
 {
     p->previous = p->current;
     p->current  = lexer_next(p->lexer);
+    /* INDENT/DEDENT are real tokens now: block bodies are bounded by
+       them (expect_block_body / close_block_body).  They only ever
+       appear at logical-line boundaries, so expression parsing never
+       encounters them mid-expression. */
 }
 
 static bool check(parser_t *p, token_type_t type)
@@ -333,6 +337,95 @@ static void skip_newlines(parser_t *p)
     /* A real statement boundary resets the in-statement error state. */
     if (crossed)
         p->panicking = 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Block headers                                                      *
+ * ------------------------------------------------------------------ *
+ * Migration step 1: block headers are now terminated by ':' followed
+ * by a newline, e.g.  "fn f(a, b):"  /  "if x > 5:"  /  "while x:".
+ *
+ * Legacy '{' headers are still recognised, but produce one clear error
+ * telling the author to switch to ':' + newline; the brace is then
+ * consumed so the block body still parses (see expect_block_body,
+ * migration step 2).
+ * ------------------------------------------------------------------ */
+static void expect_block_header(parser_t *p, const char *what)
+{
+    /* New syntax: ':' followed by a newline (EOF also ends the line). */
+    if (match(p, TOKEN_COLON)) {
+        if (check(p, TOKEN_NEWLINE))
+            advance(p);
+        else if (!check(p, TOKEN_EOF))
+            error_fmt(p, &p->current, "expected a newline after ':'");
+        return;
+    }
+
+    /* Legacy syntax: '{' right after the header.  Report one clear
+       migration error, then absorb the brace so the body still parses
+       and we don't cascade unrelated errors into it. */
+    if (check(p, TOKEN_BRACE_OPEN)) {
+        if (!p->panicking)
+            error_fmt(p, &p->current,
+                      "expected ':' after %s — block headers now use ':' "
+                      "followed by a newline instead of '{'", what);
+        advance(p);
+        return;
+    }
+
+    /* Missing colon entirely. */
+    {
+        char msg[128];
+        snprintf(msg, sizeof msg, "expected ':' after %s", what);
+        consume(p, TOKEN_COLON, msg);
+
+        /* consume()'s synchronize() halts on newlines and braces; absorb
+           a stray legacy '{' (same line or the next) so the body still
+           parses and we don't cascade unrelated errors. */
+        if (check(p, TOKEN_BRACE_OPEN))
+            advance(p);
+        if (check(p, TOKEN_NEWLINE))
+            advance(p);
+        if (check(p, TOKEN_BRACE_OPEN))
+            advance(p);
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * Block bodies                                                       *
+ * ------------------------------------------------------------------ *
+ * Migration step 2: block bodies are now bounded by indentation —
+ * TOKEN_INDENT opens the body and TOKEN_DEDENT closes it.  Legacy
+ * '{' bodies are still tolerated: the header already flagged them,
+ * and the closing '}' is absorbed so old code keeps parsing with just
+ * those header errors.  The body arrays (ast.h/codegen.c) are
+ * untouched — only how the parser bounds them changed.
+ * ------------------------------------------------------------------ */
+
+/* Open a block body: expect the INDENT marker.  (A legacy '{' header
+   leaves a NEWLINE before the marker, so skip newlines first.) */
+static void expect_block_body(parser_t *p)
+{
+    skip_newlines(p);
+    consume(p, TOKEN_INDENT, "expected an indented block");
+}
+
+/* Close a block body: consume the DEDENT (new style).  Legacy bodies
+   end with '}' instead, and a stray legacy '}' right after the DEDENT
+   is absorbed too, so old "} else {" chains keep parsing with only
+   the header migration errors. */
+static void close_block_body(parser_t *p)
+{
+    if (match(p, TOKEN_DEDENT)) {
+        if (check(p, TOKEN_BRACE_CLOSE))
+            advance(p);   /* legacy '}' still closing the block */
+        return;
+    }
+    if (check(p, TOKEN_BRACE_CLOSE)) {
+        advance(p);       /* legacy '}' body terminator */
+        return;
+    }
+    consume(p, TOKEN_DEDENT, "expected end of indented block");
 }
 
 /* ------------------------------------------------------------------ *
@@ -794,6 +887,7 @@ static program_t *parse_program_internal(parser_t *p)
         /* Only skip a sync token (never a real statement) so we keep
            reporting every error instead of stopping at the first. */
         if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                             check(p, TOKEN_BRACE_OPEN) ||
                              check(p, TOKEN_BRACE_CLOSE)))
             advance(p);
     }
@@ -825,6 +919,12 @@ static stmt_t *parse_declaration(parser_t *p)
 static stmt_t *parse_statement(parser_t *p)
 {
     skip_newlines(p);
+
+    /* INDENT/DEDENT markers can sit at statement boundaries when legacy
+       '{' blocks are still in use — the block body machinery owns them,
+       so skip any stray ones here before dispatching. */
+    while (check(p, TOKEN_INDENT) || check(p, TOKEN_DEDENT))
+        advance(p);
 
     /* Window creation (game syntax) */
     if (check(p, TOKEN_KEYWORD) && token_equals(p->current, "window"))
@@ -887,7 +987,8 @@ static stmt_t *parse_statement(parser_t *p)
 }
 
 /* ------------------------------------------------------------------ *
- * fn_stmt -> 'fn' IDENT '(' params? ')' block                        *
+ * fn_stmt -> 'fn' IDENT '(' params? ')' ':' NEWLINE                 *
+ *            INDENT stmt* DEDENT                                     *
  * ------------------------------------------------------------------ */
 
 static stmt_t *parse_fn_stmt(parser_t *p)
@@ -922,29 +1023,32 @@ static stmt_t *parse_fn_stmt(parser_t *p)
     }
     consume(p, TOKEN_RPAREN, "expected ')' after parameters");
 
-    skip_newlines(p);
-    consume(p, TOKEN_BRACE_OPEN, "expected '{' for function body");
+    expect_block_header(p, "function parameters");
 
-    /* Parse body */
+    /* Body: INDENT, statements until DEDENT, consume DEDENT */
     size_t body_cap = 0;
-    while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+    expect_block_body(p);
+    while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+           !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
         p->panicking = 0;
         stmt_t *body_stmt = parse_statement(p);
         if (body_stmt) {
             GROW_ARRAY(stmt->as.fn.body, stmt->as.fn.body_count, body_cap, sizeof(stmt_t *));
             stmt->as.fn.body[stmt->as.fn.body_count++] = body_stmt;
         }
-        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON)))
+        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                             check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE)))
             advance(p);
     }
-    consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close function body");
+    close_block_body(p);
     skip_newlines(p);
 
     return stmt;
 }
 
 /* ------------------------------------------------------------------ *
- * if_stmt -> 'if' expr block ('else' (if_stmt | block))?             *
+ * if_stmt -> 'if' expr ':' NEWLINE INDENT stmt* DEDENT             *
+ *            ('else' (if_stmt | ':' NEWLINE INDENT stmt* DEDENT))? *
  * ------------------------------------------------------------------ */
 
 static stmt_t *parse_if_stmt(parser_t *p)
@@ -959,22 +1063,24 @@ static stmt_t *parse_if_stmt(parser_t *p)
     /* Parse condition expression */
     stmt->as.if_stmt.condition = parse_expr(p);
 
-    skip_newlines(p);
-    consume(p, TOKEN_BRACE_OPEN, "expected '{' after if condition");
+    expect_block_header(p, "if condition");
 
-    /* Parse then-body */
+    /* Then-body: INDENT, statements until DEDENT, consume DEDENT */
     size_t body_cap = 0;
-    while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+    expect_block_body(p);
+    while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+           !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
         p->panicking = 0;
         stmt_t *body_stmt = parse_statement(p);
         if (body_stmt) {
             GROW_ARRAY(stmt->as.if_stmt.then_body, stmt->as.if_stmt.then_count, body_cap, sizeof(stmt_t *));
             stmt->as.if_stmt.then_body[stmt->as.if_stmt.then_count++] = body_stmt;
         }
-        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON)))
+        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                             check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE)))
             advance(p);
     }
-    consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close if block");
+    close_block_body(p);
 
     stmt->as.if_stmt.else_branch = NULL;
 
@@ -982,12 +1088,11 @@ static stmt_t *parse_if_stmt(parser_t *p)
     skip_newlines(p);
     if (check(p, TOKEN_KEYWORD) && token_equals(p->current, "else")) {
         advance(p); /* consume 'else' */
-        skip_newlines(p);
-        /* Allow 'else if' or just 'else { }' */
+        /* Allow 'else if' or just 'else:' / legacy 'else { }' */
         if (check(p, TOKEN_KEYWORD) && token_equals(p->current, "if")) {
             stmt->as.if_stmt.else_branch = parse_if_stmt(p);
         } else {
-            consume(p, TOKEN_BRACE_OPEN, "expected '{' after else");
+            expect_block_header(p, "else");
             stmt_t *else_block = alloc_stmt();
             else_block->type   = STMT_IF; /* reuse STMT_IF as a block container */
             else_block->line   = p->previous.line;
@@ -998,7 +1103,9 @@ static stmt_t *parse_if_stmt(parser_t *p)
             else_block->as.if_stmt.else_branch  = NULL;
 
             size_t else_cap = 0;
-            while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+            expect_block_body(p);
+            while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+                   !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
                 p->panicking = 0;
                 stmt_t *body_stmt = parse_statement(p);
                 if (body_stmt) {
@@ -1007,10 +1114,11 @@ static stmt_t *parse_if_stmt(parser_t *p)
                                else_cap, sizeof(stmt_t *));
                     else_block->as.if_stmt.then_body[else_block->as.if_stmt.then_count++] = body_stmt;
                 }
-                if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON)))
+                if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                                     check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE)))
                     advance(p);
             }
-            consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close else block");
+            close_block_body(p);
             stmt->as.if_stmt.else_branch = else_block;
         }
     }
@@ -1058,7 +1166,7 @@ static stmt_t *parse_continue_stmt(parser_t *p)
 }
 
 /* ------------------------------------------------------------------ *
- * while_stmt -> 'while' expr block                                   *
+ * while_stmt -> 'while' expr ':' NEWLINE INDENT stmt* DEDENT       *
  * ------------------------------------------------------------------ */
 
 static stmt_t *parse_while_stmt(parser_t *p)
@@ -1072,30 +1180,33 @@ static stmt_t *parse_while_stmt(parser_t *p)
 
     stmt->as.while_stmt.condition = parse_expr(p);
 
-    skip_newlines(p);
-    consume(p, TOKEN_BRACE_OPEN, "expected '{' after while condition");
+    expect_block_header(p, "while condition");
 
     p->loop_depth++;
     size_t body_cap = 0;
-    while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+    expect_block_body(p);
+    while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+           !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
         p->panicking = 0;
         stmt_t *body_stmt = parse_statement(p);
         if (body_stmt) {
             GROW_ARRAY(stmt->as.while_stmt.body, stmt->as.while_stmt.body_count, body_cap, sizeof(stmt_t *));
             stmt->as.while_stmt.body[stmt->as.while_stmt.body_count++] = body_stmt;
         }
-        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON)))
+        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                             check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE)))
             advance(p);
     }
     p->loop_depth--;
-    consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close while block");
+    close_block_body(p);
     skip_newlines(p);
 
     return stmt;
 }
 
 /* ------------------------------------------------------------------ *
- * for_stmt -> 'for' '(' expr? ';' expr? ';' expr? ')' block          *
+ * for_stmt -> 'for' '(' expr? ';' expr? ';' expr? ')' ':' NEWLINE   *
+ *            INDENT stmt* DEDENT                                     *
  * ------------------------------------------------------------------ */
 
 static stmt_t *parse_for_stmt(parser_t *p)
@@ -1156,23 +1267,25 @@ static stmt_t *parse_for_stmt(parser_t *p)
     }
     consume(p, TOKEN_RPAREN, "expected ')' after for clauses");
 
-    skip_newlines(p);
-    consume(p, TOKEN_BRACE_OPEN, "expected '{' for for body");
+    expect_block_header(p, "for clauses");
 
     p->loop_depth++;
     size_t body_cap = 0;
-    while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+    expect_block_body(p);
+    while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+           !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
         p->panicking = 0;
         stmt_t *body_stmt = parse_statement(p);
         if (body_stmt) {
             GROW_ARRAY(stmt->as.for_stmt.body, stmt->as.for_stmt.body_count, body_cap, sizeof(stmt_t *));
             stmt->as.for_stmt.body[stmt->as.for_stmt.body_count++] = body_stmt;
         }
-        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON)))
+        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                             check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE)))
             advance(p);
     }
     p->loop_depth--;
-    consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close for body");
+    close_block_body(p);
     skip_newlines(p);
 
     return stmt;
@@ -1221,9 +1334,10 @@ static stmt_t *parse_return_stmt(parser_t *p)
     stmt->column = p->previous.column;
     stmt->as.ret.value = NULL;
 
-    /* If there's an expression before newline/brace/EOF, parse it */
-    if (!check(p, TOKEN_NEWLINE) && !check(p, TOKEN_BRACE_CLOSE) &&
-        !check(p, TOKEN_EOF) && !check(p, TOKEN_SEMICOLON))
+    /* If there's an expression before newline/dedent/brace/EOF, parse it */
+    if (!check(p, TOKEN_NEWLINE) && !check(p, TOKEN_DEDENT) &&
+        !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF) &&
+        !check(p, TOKEN_SEMICOLON))
     {
         stmt->as.ret.value = parse_expr(p);
         if (!stmt->as.ret.value)
@@ -1356,7 +1470,7 @@ static stmt_t *parse_sprite_stmt(parser_t *p)
 }
 
 /* ------------------------------------------------------------------ *
- * Legacy: event_stmt -> 'on' IDENT '{' stmt* '}'                     *
+ * event_stmt -> 'on' IDENT ':' NEWLINE INDENT stmt* DEDENT          *
  * ------------------------------------------------------------------ */
 
 static stmt_t *parse_event_stmt(parser_t *p)
@@ -1378,28 +1492,30 @@ static stmt_t *parse_event_stmt(parser_t *p)
         stmt->as.event.name->column                = name_tok.column;
     }
 
-    skip_newlines(p);
-    consume(p, TOKEN_BRACE_OPEN, "expected '{' after event name");
+    expect_block_header(p, "event name");
 
     size_t body_cap = 0;
-    while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+    expect_block_body(p);
+    while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+           !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
         p->panicking = 0;
         stmt_t *body_stmt = parse_statement(p);
         if (body_stmt) {
             GROW_ARRAY(stmt->as.event.body, stmt->as.event.body_count, body_cap, sizeof(stmt_t *));
             stmt->as.event.body[stmt->as.event.body_count++] = body_stmt;
         }
-        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON)))
+        if (p->had_error && (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                             check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE)))
             advance(p);
     }
-    consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close event block");
+    close_block_body(p);
     skip_newlines(p);
 
     return stmt;
 }
 
 /* ------------------------------------------------------------------ *
- * struct_stmt -> 'struct' IDENT '{' IDENT* '}'                      *
+ * struct_stmt -> 'struct' IDENT ':' NEWLINE INDENT IDENT* DEDENT   *
  * ------------------------------------------------------------------ */
 
 static stmt_t *parse_struct_stmt(parser_t *p)
@@ -1410,8 +1526,7 @@ static stmt_t *parse_struct_stmt(parser_t *p)
         "expected struct name after 'struct'");
     if (p->panicking) return NULL;   /* consume() already synchronized */
 
-    skip_newlines(p);
-    consume(p, TOKEN_BRACE_OPEN, "expected '{' after struct name");
+    expect_block_header(p, "struct name");
 
     stmt_t *stmt = alloc_stmt();
     stmt->type   = STMT_STRUCT;
@@ -1424,13 +1539,15 @@ static stmt_t *parse_struct_stmt(parser_t *p)
     stmt->as.struct_def.field_count = 0;
 
     size_t field_cap = 0;
-    skip_newlines(p);
-    while (!check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
+    expect_block_body(p);
+    while (!check(p, TOKEN_DEDENT) && !check(p, TOKEN_BRACE_OPEN) &&
+           !check(p, TOKEN_BRACE_CLOSE) && !check(p, TOKEN_EOF)) {
         p->panicking = 0;
         token_t field_tok = consume(p, TOKEN_IDENTIFIER,
             "expected field name in struct");
         if (p->panicking) {
-            if (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON))
+            if (check(p, TOKEN_NEWLINE) || check(p, TOKEN_SEMICOLON) ||
+                check(p, TOKEN_BRACE_OPEN) || check(p, TOKEN_BRACE_CLOSE))
                 advance(p);
             continue;
         }
@@ -1443,7 +1560,7 @@ static stmt_t *parse_struct_stmt(parser_t *p)
 
         skip_newlines(p);
     }
-    consume(p, TOKEN_BRACE_CLOSE, "expected '}' to close struct");
+    close_block_body(p);
     skip_newlines(p);
     return stmt;
 }
@@ -1465,8 +1582,8 @@ static stmt_t *parse_legacy_call_stmt(parser_t *p)
     advance(p);
 
     size_t arg_cap = 0;
-    while (!check(p, TOKEN_NEWLINE) && !check(p, TOKEN_EOF) &&
-           !check(p, TOKEN_BRACE_CLOSE))
+    while (!check(p, TOKEN_NEWLINE) && !check(p, TOKEN_DEDENT) &&
+           !check(p, TOKEN_EOF) && !check(p, TOKEN_BRACE_CLOSE))
     {
         expr_t *e = parse_expr(p);
         if (e) {

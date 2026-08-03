@@ -1,1 +1,2 @@
-fn greet(name) { print "Hello, ", name }
+fn greet(name):
+    print "Hello, ", name

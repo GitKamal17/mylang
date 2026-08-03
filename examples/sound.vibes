@@ -3,6 +3,7 @@ jump = load_sound("jump.wav")
 play_music("bgm.ogg")
 x = 400
 y = 300
-if key_right { x = x + 5 }
+if key_right:
+    x = x + 5
 play_sound(jump)
 draw_circle x, y, 30, "red"
