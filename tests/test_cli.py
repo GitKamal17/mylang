@@ -33,6 +33,11 @@ class CLIIntegration(unittest.TestCase):
             self.assertNotEqual(self.invoke('check', source).returncode, 0)
             self.assertNotEqual(self.invoke('check', pathlib.Path(tmp) / 'missing.vibes').returncode, 0)
 
+    def test_oversized_package_filename_fails_before_download(self):
+        result = self.invoke('install', 'https://example.com/' + 'a' * 300 + '.vibes')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('package filename too long', result.stderr)
+
     def test_relative_import_from_unrelated_directory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

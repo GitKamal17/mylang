@@ -341,7 +341,9 @@ static int cmd_install(const char *pkg)
 
     /* Package name = file basename without .vibes */
     char name[256];
-    snprintf(name, sizeof name, "%s", fname);
+    if (snprintf(name, sizeof name, "%s", fname) >= (int)sizeof name) {
+        fprintf(stderr, "error: package filename too long\n"); return 1;
+    }
     size_t nl = strlen(name);
     if (nl > 6 && strcmp(name + nl - 6, ".vibes") == 0)
         name[nl - 6] = '\0';
@@ -349,7 +351,9 @@ static int cmd_install(const char *pkg)
     char dir[1100], dest[1200];
     snprintf(dir, sizeof dir, "%s/%s", pkgs, name);
     mkdir_p(dir);
-    snprintf(dest, sizeof dest, "%s/%s", dir, fname);
+    if (snprintf(dest, sizeof dest, "%s/%s", dir, fname) >= (int)sizeof dest) {
+        fprintf(stderr, "error: package destination too long\n"); return 1;
+    }
 
     /* Download with curl via exec — no shell, so no command injection.
        Download to a temp file and rename into place only on success, so a
@@ -415,7 +419,7 @@ static int cmd_list(void)
     while ((ent = readdir(dir)) != NULL) {
         if (ent->d_name[0] == '.') continue;
         char sub[1100];
-        snprintf(sub, sizeof sub, "%s/%s", pkgs, ent->d_name);
+        if (snprintf(sub, sizeof sub, "%s/%s", pkgs, ent->d_name) >= (int)sizeof sub) continue;
         struct stat st;
         if (stat(sub, &st) != 0) continue;
         if (S_ISDIR(st.st_mode)) {
