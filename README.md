@@ -118,6 +118,7 @@ An 800×600 window opens with a red ball you can move with the arrow keys.
 ```
 Usage: mylang <command> <file.vibes>
 
+  check  <file>    Validate parsing/code generation without compiling
   emit   <file>    Parse and print generated C to stdout
   build  <file>    Parse, generate C, and compile to binary
   run    <file>    Parse, generate C, compile, and run
@@ -197,15 +198,31 @@ generated C.
 
 ## 🖥️ VS Code Extension
 
-Syntax highlighting for `.vibes` files lives in
-[`vibes-vscode/`](vibes-vscode/):
+The extension provides **Run, Build, Check, generated C output, syntax highlighting,
+and snippets**. Open this repository in VS Code, build the compiler with `make`,
+and install the VSIX through **Extensions → … → Install from VSIX**.
+Open `examples/hello.vibes` and click the play button.
+
+To create the installable extension:
 
 ```bash
 cd vibes-vscode
-npm install -g @vscode/vsce
-vsce package
-code --install-extension vibes-vscode-*.vsix
+npm ci
+npm test
+npm run package
 ```
+
+This creates `vibes-vscode-0.2.0.vsix`, which you can share directly.
+See [the extension guide](vibes-vscode/README.md) for compiler configuration,
+shortcuts, WSL setup, and development with F5. The compiler is installed separately.
+Marketplace publication is not yet configured.
+
+### Supported environments
+
+- **macOS / Linux:** build with a C99 compiler and Make.
+- **Windows:** use WSL and open the project in VS Code's WSL environment.
+  The compiler currently relies on POSIX APIs; native Windows is unsupported.
+- **Games:** require Raylib. Plain programs require only the C toolchain.
 
 ## 🛠️ Development
 
@@ -225,7 +242,7 @@ src/           lexer → parser → codegen + pipeline visualizer + CLI (main.c)
 examples/      Ready-to-run .vibes programs
 tests/         C test suites (test_lexer.c, test_parser.c, test_codegen.c, test_indent.c)
 packages/      Source for bundled std packages
-vibes-vscode/  VS Code syntax highlighting extension
+vibes-vscode/  VS Code commands, highlighting, snippets, and packaging
 docs/          demo.gif — the animated showcase
 LEARN.md       The official language documentation
 GETTING_STARTED.md  The 10-minute beginner's guide (start here)

@@ -43,6 +43,7 @@ static void print_usage(void)
     printf("Usage: mylang <command> <file.vibes>\n\n");
     printf("Commands:\n");
     printf("  emit   <file>    Parse and print generated C to stdout\n");
+    printf("  check  <file>    Validate parsing and code generation without compiling\n");
     printf("  build  <file>    Parse, generate C, and compile to binary\n");
     printf("  run    <file>    Parse, generate C, compile, and run\n");
     printf("  debug  <file>    Print tokens and AST tree to stderr\n");
@@ -1033,6 +1034,12 @@ int main(int argc, char **argv)
 
     if (strcmp(cmd, "emit") == 0) {
         return cmd_emit(file);
+    } else if (strcmp(cmd, "check") == 0) {
+        char *code = transpile(file, NULL);
+        if (!code) return 1;
+        free(code);
+        printf("Checked: %s\n", file);
+        return 0;
     } else if (strcmp(cmd, "build") == 0) {
         size_t flen = strlen(file);
         char *bin_name = (char *)malloc(flen + 8);

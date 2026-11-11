@@ -57,7 +57,7 @@ TEST_PARSER_BIN   = test_parser
 TEST_CODEGEN_BIN  = test_codegen
 TEST_INDENT_BIN   = test_indent
 
-.PHONY: all test install uninstall clean demo-gif sanitize analyze
+.PHONY: all test test-cli test-extension install uninstall clean demo-gif sanitize analyze
 
 all: mylang
 
@@ -151,3 +151,10 @@ clean:
 
 demo-gif: mylang
 	bash scripts/make_demo_gif.sh
+
+# End-to-end checks compile and execute generated C (Python 3 required).
+test-cli: mylang
+	python3 tests/test_cli.py
+
+test-extension: mylang
+	npm test --prefix vibes-vscode
