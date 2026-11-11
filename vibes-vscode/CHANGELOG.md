@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0
+
+- Bundle a native compiler in platform-specific extension packages.
+- Check Clang/system headers before builds and Raylib linking for games.
+- Add Check Setup with actionable installation guidance.
+- Add Create Project with program and game templates and overwrite protection.
+- Build and smoke-test packages for macOS and Linux on x64 and ARM64.
+
 ## 0.2.1
 
 - Discover the compiler in a source checkout when opening an example alone or a nested folder, before falling back to PATH.

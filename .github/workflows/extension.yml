@@ -1,0 +1,43 @@
+name: Platform extension packages
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: darwin-arm64
+          - os: macos-15-intel
+            target: darwin-x64
+          - os: ubuntu-22.04
+            target: linux-x64
+          - os: ubuntu-22.04-arm
+            target: linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vibes-vscode/package-lock.json
+      - run: make
+      - run: npm ci
+        working-directory: vibes-vscode
+      - run: npm run package
+        working-directory: vibes-vscode
+      - run: npm test
+        working-directory: vibes-vscode
+      - name: Verify packaged compiler in an isolated project
+        env:
+          TARGET: ${{ matrix.target }}
+        run: python3 tests/test_vsix.py "vibes-vscode/vibes-vscode-0.3.0-$TARGET.vsix"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vibes-vscode-${{ matrix.target }}
+          path: vibes-vscode/*.vsix

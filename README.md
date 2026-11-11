@@ -198,24 +198,27 @@ generated C.
 
 ## 🖥️ VS Code Extension
 
-The extension provides **Run, Build, Check, generated C output, syntax highlighting,
-and snippets**. Open this repository in VS Code, build the compiler with `make`,
-and install the VSIX through **Extensions → … → Install from VSIX**.
-Open `examples/hello.vibes` and click the play button.
+The extension bundles the MyLang compiler and provides **Create Project, Check Setup,
+Run, Build, Check, generated C output, syntax highlighting, and snippets**.
+Install the matching platform VSIX, run **MyLang: Create Project**, open `main.vibes`,
+and click Run. No repository clone or separate MyLang installation is required.
+Clang/system headers are still needed to run programs, and games also need Raylib;
+the extension checks dependencies and provides installation guidance.
 
-To create the installable extension:
+For contributors building a package:
 
 ```bash
 cd vibes-vscode
 npm ci
-npm test
 npm run package
+npm test
 ```
 
-This creates `vibes-vscode-0.2.1.vsix`, which you can share directly.
-See [the extension guide](vibes-vscode/README.md) for compiler configuration,
-shortcuts, WSL setup, and development with F5. The compiler is installed separately.
-Marketplace publication is not yet configured.
+This creates `vibes-vscode-0.3.0-<platform>-<architecture>.vsix` with a fresh native
+compiler. CI builds packages for macOS and Linux on x64 and ARM64.
+See [the extension guide](vibes-vscode/README.md) for user setup and
+[publishing instructions](vibes-vscode/PUBLISHING.md) for the release process.
+Marketplace publication requires a verified publisher account and is still pending.
 
 ### Supported environments
 

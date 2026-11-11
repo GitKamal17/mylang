@@ -1,8 +1,8 @@
 {
   "name": "vibes-vscode",
   "displayName": "Vibes Language Support",
-  "description": "Run, build, and check MyLang programs, with Vibes syntax highlighting and snippets.",
-  "version": "0.2.1",
+  "description": "Create and run Vibes programs and games with a bundled MyLang compiler, setup checks, and syntax highlighting.",
+  "version": "0.3.0",
   "publisher": "mylang",
   "license": "MIT",
   "engines": {
@@ -63,6 +63,17 @@
         "category": "MyLang",
         "enablement": "isWorkspaceTrusted",
         "icon": "$(tools)"
+      },
+      {
+        "command": "vibes.createProject",
+        "category": "MyLang",
+        "title": "Create Project"
+      },
+      {
+        "command": "vibes.checkSetup",
+        "category": "MyLang",
+        "title": "Check Setup",
+        "enablement": "isWorkspaceTrusted"
       }
     ],
     "menus": {
@@ -96,7 +107,7 @@
           "type": "string",
           "default": "",
           "scope": "resource",
-          "description": "Compiler executable or path (no arguments). Relative paths resolve from the workspace folder. Empty: workspace mylang, then PATH."
+          "description": "Optional compiler override (no arguments). Empty uses the bundled compiler. Relative paths resolve from the workspace folder."
         }
       }
     },
@@ -128,7 +139,7 @@
   ],
   "scripts": {
     "test": "node --test test/*.test.js",
-    "package": "vsce package"
+    "package": "node scripts/package.js"
   },
   "devDependencies": {
     "@vscode/vsce": "4.1.0"
@@ -142,5 +153,12 @@
       ]
     },
     "virtualWorkspaces": false
-  }
+  },
+  "keywords": [
+    "vibes",
+    "mylang",
+    "language",
+    "games",
+    "raylib"
+  ]
 }

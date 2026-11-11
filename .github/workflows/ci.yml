@@ -105,23 +105,4 @@ jobs:
           echo "No warnings. ✅"
 
   extension:
-    name: Test and package VS Code extension
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: vibes-vscode/package-lock.json
-      - run: make
-      - run: npm ci
-        working-directory: vibes-vscode
-      - run: npm test
-        working-directory: vibes-vscode
-      - run: npm run package
-        working-directory: vibes-vscode
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vibes-vscode
-          path: vibes-vscode/*.vsix
+    uses: ./.github/workflows/extension.yml
