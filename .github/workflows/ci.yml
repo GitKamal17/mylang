@@ -23,6 +23,9 @@ jobs:
       - name: Run all test suites
         run: make test
 
+      - name: End-to-end compiler tests
+        run: make test-cli
+
       - name: Check CLI version
         run: ./mylang --version
 
@@ -75,7 +78,7 @@ jobs:
 
       - name: Package checksum verification
         run: |
-          URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}/examples/app.vibes"
+          URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/examples/app.vibes"
           curl -fsSL "$URL" -o /tmp/verify.vibes
           if command -v shasum > /dev/null; then
             HASH=$(shasum -a 256 /tmp/verify.vibes | awk '{print $1}')
@@ -100,3 +103,6 @@ jobs:
             exit 1
           fi
           echo "No warnings. ✅"
+
+  extension:
+    uses: ./.github/workflows/extension.yml

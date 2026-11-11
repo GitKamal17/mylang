@@ -118,6 +118,7 @@ An 800×600 window opens with a red ball you can move with the arrow keys.
 ```
 Usage: mylang <command> <file.vibes>
 
+  check  <file>    Validate parsing/code generation without compiling
   emit   <file>    Parse and print generated C to stdout
   build  <file>    Parse, generate C, and compile to binary
   run    <file>    Parse, generate C, compile, and run
@@ -197,15 +198,34 @@ generated C.
 
 ## 🖥️ VS Code Extension
 
-Syntax highlighting for `.vibes` files lives in
-[`vibes-vscode/`](vibes-vscode/):
+The extension bundles the MyLang compiler and provides **Create Project, Check Setup,
+Run, Build, Check, generated C output, syntax highlighting, and snippets**.
+Install the matching platform VSIX, run **MyLang: Create Project**, open `main.vibes`,
+and click Run. No repository clone or separate MyLang installation is required.
+Clang/system headers are still needed to run programs, and games also need Raylib;
+the extension checks dependencies and provides installation guidance.
+
+For contributors building a package:
 
 ```bash
 cd vibes-vscode
-npm install -g @vscode/vsce
-vsce package
-code --install-extension vibes-vscode-*.vsix
+npm ci
+npm run package
+npm test
 ```
+
+This creates `vibes-vscode-0.3.0-<platform>-<architecture>.vsix` with a fresh native
+compiler. CI builds packages for macOS and Linux on x64 and ARM64.
+See [the extension guide](vibes-vscode/README.md) for user setup and
+[publishing instructions](vibes-vscode/PUBLISHING.md) for the release process.
+Marketplace publication requires a verified publisher account and is still pending.
+
+### Supported environments
+
+- **macOS / Linux:** build with a C99 compiler and Make.
+- **Windows:** use WSL and open the project in VS Code's WSL environment.
+  The compiler currently relies on POSIX APIs; native Windows is unsupported.
+- **Games:** require Raylib. Plain programs require only the C toolchain.
 
 ## 🛠️ Development
 
@@ -225,7 +245,7 @@ src/           lexer → parser → codegen + pipeline visualizer + CLI (main.c)
 examples/      Ready-to-run .vibes programs
 tests/         C test suites (test_lexer.c, test_parser.c, test_codegen.c, test_indent.c)
 packages/      Source for bundled std packages
-vibes-vscode/  VS Code syntax highlighting extension
+vibes-vscode/  VS Code commands, highlighting, snippets, and packaging
 docs/          demo.gif — the animated showcase
 LEARN.md       The official language documentation
 GETTING_STARTED.md  The 10-minute beginner's guide (start here)

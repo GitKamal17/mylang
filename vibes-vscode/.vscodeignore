@@ -1,0 +1,8 @@
+node_modules/**
+test/**
+package-lock.json
+*.vsix
+.vscode/**
+scripts/**
+PUBLISHING.md
+dist/**

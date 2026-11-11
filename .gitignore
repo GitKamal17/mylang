@@ -34,3 +34,13 @@ output.txt
 
 # Package manager artifacts
 .mylang/
+
+# Extension dependencies and packages
+node_modules/
+*.vsix
+!/.vscode/
+/.vscode/*
+!/.vscode/launch.json
+!/.vscode/tasks.json
+
+/vibes-vscode/bin/

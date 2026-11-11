@@ -58,7 +58,8 @@ static void resolve_import_path(const char *base_dir, const char *filename,
                                 char *out, size_t out_size)
 {
     if (base_dir && base_dir[0] && strcmp(base_dir, ".") != 0) {
-        snprintf(out, out_size, "%s/%s", base_dir, filename);
+        if (snprintf(out, out_size, "%s/%s", base_dir, filename) >= (int)out_size)
+            out[0] = '\0';
     } else {
         snprintf(out, out_size, "%s", filename);
     }
@@ -84,12 +85,12 @@ static int resolve_package_import(const char *filename, char *out, size_t out_si
     snprintf(pkg_root, sizeof pkg_root, "%s/.mylang/packages", home);
 
     /* 1. As-is: ~/.mylang/packages/<filename> */
-    snprintf(out, out_size, "%s/%s", pkg_root, filename);
+    if (snprintf(out, out_size, "%s/%s", pkg_root, filename) >= (int)out_size) return 0;
     if (is_regular_file(out)) return 1;
 
     /* 2. With .vibes appended: ~/.mylang/packages/<filename>.vibes
        (this is where 'mylang install std' puts std/math.vibes) */
-    snprintf(out, out_size, "%s/%s.vibes", pkg_root, filename);
+    if (snprintf(out, out_size, "%s/%s.vibes", pkg_root, filename) >= (int)out_size) return 0;
     if (is_regular_file(out)) return 1;
 
     /* 3. Single-file package dir: ~/.mylang/packages/<dir>/<base>.vibes
@@ -97,7 +98,7 @@ static int resolve_package_import(const char *filename, char *out, size_t out_si
        e.g. triple/triple.vibes, so import "triple" resolves here) */
     const char *base = strrchr(filename, '/');
     base = base ? base + 1 : filename;
-    snprintf(out, out_size, "%s/%s/%s.vibes", pkg_root, filename, base);
+    if (snprintf(out, out_size, "%s/%s/%s.vibes", pkg_root, filename, base) >= (int)out_size) return 0;
     if (is_regular_file(out)) return 1;
 
     return 0;

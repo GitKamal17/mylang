@@ -1,13 +1,15 @@
 {
   "name": "vibes-vscode",
   "displayName": "Vibes Language Support",
-  "description": "Syntax highlighting for .vibes (MyLang) game scripting files",
-  "version": "0.1.0",
+  "description": "Create and run Vibes programs and games with a bundled MyLang compiler, setup checks, and syntax highlighting.",
+  "version": "0.3.0",
   "publisher": "mylang",
   "license": "MIT",
   "engines": {
     "vscode": "^1.75.0"
   },
+  "main": "./extension.js",
+  "activationEvents": [],
   "categories": [
     "Programming Languages"
   ],
@@ -15,8 +17,14 @@
     "languages": [
       {
         "id": "vibes",
-        "aliases": ["Vibes", "MyLang", "vibes"],
-        "extensions": [".vibes"],
+        "aliases": [
+          "Vibes",
+          "MyLang",
+          "vibes"
+        ],
+        "extensions": [
+          ".vibes"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -26,6 +34,131 @@
         "scopeName": "source.vibes",
         "path": "./syntaxes/vibes.tmLanguage.json"
       }
+    ],
+    "commands": [
+      {
+        "command": "vibes.runFile",
+        "title": "Run File",
+        "category": "MyLang",
+        "enablement": "isWorkspaceTrusted",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vibes.buildFile",
+        "title": "Build File",
+        "category": "MyLang",
+        "enablement": "isWorkspaceTrusted",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "vibes.checkFile",
+        "title": "Check File",
+        "category": "MyLang",
+        "enablement": "isWorkspaceTrusted",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "vibes.emitFile",
+        "title": "Show Generated C in Terminal",
+        "category": "MyLang",
+        "enablement": "isWorkspaceTrusted",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "vibes.createProject",
+        "category": "MyLang",
+        "title": "Create Project"
+      },
+      {
+        "command": "vibes.checkSetup",
+        "category": "MyLang",
+        "title": "Check Setup",
+        "enablement": "isWorkspaceTrusted"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "vibes.runFile",
+          "group": "navigation",
+          "when": "editorLangId == vibes"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "vibes.runFile",
+          "when": "editorLangId == vibes && isWorkspaceTrusted",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "vibes.runFile",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "editorTextFocus && editorLangId == vibes"
+      }
+    ],
+    "configuration": {
+      "title": "MyLang",
+      "properties": {
+        "vibes.compilerPath": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Optional compiler override (no arguments). Empty uses the bundled compiler. Relative paths resolve from the workspace folder."
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[vibes]": {
+        "editor.insertSpaces": true,
+        "editor.tabSize": 4,
+        "editor.detectIndentation": false
+      }
+    },
+    "snippets": [
+      {
+        "language": "vibes",
+        "path": "./snippets/vibes.json"
+      }
     ]
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/GitKamal17/mylang.git",
+    "directory": "vibes-vscode"
+  },
+  "homepage": "https://github.com/GitKamal17/mylang#readme",
+  "bugs": {
+    "url": "https://github.com/GitKamal17/mylang/issues"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "package": "node scripts/package.js"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "4.1.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Highlighting and snippets work; compiler commands require workspace trust.",
+      "restrictedConfigurations": [
+        "vibes.compilerPath"
+      ]
+    },
+    "virtualWorkspaces": false
+  },
+  "keywords": [
+    "vibes",
+    "mylang",
+    "language",
+    "games",
+    "raylib"
+  ]
 }

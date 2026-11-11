@@ -1,0 +1,41 @@
+name: Release packages
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  compiler:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make && make test && make test-cli
+      - name: Archive compiler
+        run: |
+          ARCHIVE="mylang-$(uname -s)-$(uname -m).tar.gz"
+          tar -czf "$ARCHIVE" mylang LICENSE README.md GETTING_STARTED.md LEARN.md examples packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiler-${{ matrix.os }}
+          path: mylang-*.tar.gz
+  extension:
+    uses: ./.github/workflows/extension.yml
+  draft-release:
+    needs: [compiler, extension]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create draft release with downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --generate-notes

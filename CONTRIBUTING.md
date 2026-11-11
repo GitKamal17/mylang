@@ -113,3 +113,19 @@ Codegen tests should assert on *substrings of the emitted C* (e.g.
 - [ ] New feature has lexer/parser/codegen tests as appropriate
 - [ ] `LEARN.md` and the VS Code grammar are updated if keywords changed
 - [ ] An example in `examples/` demonstrates the feature if it's user-facing
+
+## VS Code extension and end-to-end checks
+
+Run `make test-cli` to compile and execute real generated programs. Run
+`make test-extension` for extension command and grammar checks (Node.js 22+).
+From `vibes-vscode`, run `npm ci` and `npm run package` to build a VSIX.
+Open the repository in VS Code and press F5 for an Extension Development Host.
+
+Before publishing, manually verify Run, Build, Check, interactive input,
+compiler paths containing spaces, and Restricted Mode. The automated extension
+tests mock the VS Code API; they do not replace an editor smoke test.
+
+CI uploads the VSIX as the `vibes-vscode` workflow artifact. Tagged releases
+matching `v*` build compiler archives for macOS and Linux and attach them with
+the VSIX to a draft GitHub release for review. Native Windows is not supported;
+use WSL. Marketplace publishing requires a publisher account and is separate.

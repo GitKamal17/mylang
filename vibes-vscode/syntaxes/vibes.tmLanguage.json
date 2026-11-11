@@ -1,7 +1,9 @@
 {
   "name": "Vibes (MyLang)",
   "scopeName": "source.vibes",
-  "fileTypes": ["vibes"],
+  "fileTypes": [
+    "vibes"
+  ],
   "patterns": [
     {
       "include": "#comments"
@@ -26,14 +28,14 @@
     "comments": {
       "patterns": [
         {
-          "name": "comment.line.double-slash.vibes",
-          "begin": "//",
+          "name": "comment.line.number-sign.vibes",
+          "begin": "#",
           "end": "$"
         },
         {
-          "name": "comment.block.vibes",
-          "begin": "/\\*",
-          "end": "\\*/"
+          "name": "comment.line.double-slash.vibes",
+          "begin": "//",
+          "end": "$"
         }
       ]
     },
@@ -93,18 +95,26 @@
         {
           "name": "keyword.builtin.game.vibes",
           "match": "\\b(collide_circle|collide_rect|collide_point|load_sound|play_sound|play_music)\\b"
+        },
+        {
+          "name": "support.function.vibes",
+          "match": "\\b(input|sqrt|abs|sin|cos|tan|floor|ceil|round|min|max|clamp|random|random_int|to_int|to_double|to_string|sleep|time|read_file|write_file|append_file|file_exists)\\b"
         }
       ]
     },
     "operators": {
       "name": "keyword.operator.vibes",
-      "match": "=|\\+|\\-"
+      "match": "==|!=|<=|>=|&&|\\|\\||[=+*/%<>!\\-]"
     },
     "punctuation": {
       "patterns": [
         {
           "name": "punctuation.separator.comma.vibes",
           "match": ","
+        },
+        {
+          "name": "punctuation.separator.colon.vibes",
+          "match": ":"
         },
         {
           "name": "punctuation.brace.vibes",

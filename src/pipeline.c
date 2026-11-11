@@ -129,8 +129,12 @@ static int tokenize_line(const char *line_start, size_t line_len,
     }
 
     free(buf);
-    strncpy(out_tokens, tmp, out_size - 1);
-    out_tokens[out_size - 1] = '\0';
+    if (out_size) {
+        size_t length = strlen(tmp);
+        if (length >= out_size) length = out_size - 1;
+        memcpy(out_tokens, tmp, length);
+        out_tokens[length] = '\0';
+    }
     if (out_count) *out_count = count;
     return count;
 }
@@ -223,7 +227,7 @@ static void describe_expr(const expr_t *e, char *out, size_t out_size)
         char left[128], right[128];
         describe_expr(e->as.binary.left, left, sizeof left);
         describe_expr(e->as.binary.right, right, sizeof right);
-        snprintf(out, out_size, "BINARY(%s %s %s)", left, op, right);
+        snprintf(out, out_size, "BINARY(%.100s %s %.100s)", left, op, right);
         break;
     }
     case EXPR_CALL:
@@ -265,60 +269,60 @@ static void describe_expr(const expr_t *e, char *out, size_t out_size)
  * ------------------------------------------------------------------ */
 static void get_expr_detail(const stmt_t *s, char *out, size_t out_size)
 {
-    if (!s) { snprintf(out, out_size, ""); return; }
+    if (!s) { if (out_size) out[0] = '\0'; return; }
 
     switch (s->type) {
     case STMT_ASSIGN:
         if (s->as.assign.value) {
             describe_expr(s->as.assign.value, out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     case STMT_PRINT:
         if (s->as.print.value_count > 0 && s->as.print.values[0]) {
             describe_expr(s->as.print.values[0], out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     case STMT_IF:
         if (s->as.if_stmt.condition) {
             describe_expr(s->as.if_stmt.condition, out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     case STMT_WHILE:
         if (s->as.while_stmt.condition) {
             describe_expr(s->as.while_stmt.condition, out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     case STMT_CALL:
         if (s->as.call.arg_count > 0 && s->as.call.args[0]) {
             describe_expr(s->as.call.args[0], out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     case STMT_RETURN:
         if (s->as.ret.value) {
             describe_expr(s->as.ret.value, out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     case STMT_SPRITE:
         if (s->as.sprite.path) {
             describe_expr(s->as.sprite.path, out, out_size);
         } else {
-            snprintf(out, out_size, "");
+            if (out_size) out[0] = '\0';
         }
         break;
     default:
-        snprintf(out, out_size, "");
+        if (out_size) out[0] = '\0';
         break;
     }
 }
@@ -365,8 +369,12 @@ static void get_first_c_lines(const char *c_code, char *out, size_t out_size)
         snprintf(tmp, sizeof(tmp), "int x = 42;");
     }
 
-    strncpy(out, tmp, out_size - 1);
-    out[out_size - 1] = '\0';
+    if (out_size) {
+        size_t length = strlen(tmp);
+        if (length >= out_size) length = out_size - 1;
+        memcpy(out, tmp, length);
+        out[length] = '\0';
+    }
 }
 
 /* ------------------------------------------------------------------ *

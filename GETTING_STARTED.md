@@ -1,3 +1,6 @@
+> **VS Code setup:** Build with `make`, then follow the [extension installation guide](vibes-vscode/README.md).
+> Start with `examples/hello.vibes`. Windows users need WSL; the compiler is not native Windows software.
+
 # 🚀 Getting Started with MyLang
 
 > **New here? Start with this file.** It explains what MyLang is, how this
