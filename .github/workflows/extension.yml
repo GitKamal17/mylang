@@ -34,9 +34,7 @@ jobs:
       - run: npm test
         working-directory: vibes-vscode
       - name: Verify packaged compiler in an isolated project
-        env:
-          TARGET: ${{ matrix.target }}
-        run: python3 tests/test_vsix.py "vibes-vscode/vibes-vscode-0.3.0-$TARGET.vsix"
+        run: python3 tests/test_vsix.py vibes-vscode/*.vsix
       - uses: actions/upload-artifact@v4
         with:
           name: vibes-vscode-${{ matrix.target }}
