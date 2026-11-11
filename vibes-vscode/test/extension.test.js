@@ -31,3 +31,15 @@ test('discovers compiler in repository workspace', () => { folder = { uri: { fsP
 test('falls back to PATH', () => assert.equal(extension.compilerPath(document()), 'mylang'));
 test('grammar matches actual keywords, numbers, and escapes', () => { const r = require('../syntaxes/vibes.tmLanguage.json').repository; assert.ok(new RegExp(r.keywords.patterns[0].match).test('if x:')); assert.ok(new RegExp(r.numbers.match).test('12.5')); assert.ok(new RegExp(r.strings.patterns[0].match).test('\\n')); });
 test('indents colon blocks with comments', () => { const c = require('../language-configuration.json'); assert.ok(new RegExp(c.indentationRules.increaseIndentPattern).test('if x: # comment')); });
+
+test('discovers current compiler when a source file is opened alone', () => {
+  const doc = document();
+  doc.uri.fsPath = path.resolve(__dirname, '../../examples/hello.vibes');
+  assert.equal(extension.compilerPath(doc), path.resolve(__dirname, '../../mylang'));
+});
+test('discovers current compiler when only examples is the workspace', () => {
+  const doc = document();
+  doc.uri.fsPath = path.resolve(__dirname, '../../examples/hello.vibes');
+  folder = { uri: { fsPath: path.dirname(doc.uri.fsPath) } };
+  assert.equal(extension.compilerPath(doc), path.resolve(__dirname, '../../mylang'));
+});

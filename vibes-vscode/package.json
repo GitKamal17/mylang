@@ -2,7 +2,7 @@
   "name": "vibes-vscode",
   "displayName": "Vibes Language Support",
   "description": "Run, build, and check MyLang programs, with Vibes syntax highlighting and snippets.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "mylang",
   "license": "MIT",
   "engines": {

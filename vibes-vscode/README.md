@@ -12,7 +12,9 @@ snippets, and compiler commands in VS Code.
 4. Open the repository folder and `examples/hello.vibes`.
 5. Click the play button, or run **MyLang: Run File** from the Command Palette.
 
-The extension detects `mylang` in the workspace root, then tries PATH.
+The extension detects `mylang` in the workspace root, then checks parent directories
+for a MyLang source checkout, then tries PATH. An explicit `vibes.compilerPath`
+always takes priority.
 For other projects, install the compiler (`make install PREFIX="$HOME/.local"`
 and add `$HOME/.local/bin` to PATH), or set `vibes.compilerPath` to its absolute path.
 Relative compiler paths resolve from the workspace folder. Do not include arguments.
@@ -55,6 +57,6 @@ npm test
 npm run package
 ```
 
-Install `vibes-vscode-0.2.0.vsix` through VS Code's **Install from VSIX** command.
+Install `vibes-vscode-0.2.1.vsix` through VS Code's **Install from VSIX** command.
 Marketplace publication requires ownership of the publisher ID in `package.json`;
 packaging does not publish the extension.

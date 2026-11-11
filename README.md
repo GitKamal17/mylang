@@ -212,7 +212,7 @@ npm test
 npm run package
 ```
 
-This creates `vibes-vscode-0.2.0.vsix`, which you can share directly.
+This creates `vibes-vscode-0.2.1.vsix`, which you can share directly.
 See [the extension guide](vibes-vscode/README.md) for compiler configuration,
 shortcuts, WSL setup, and development with F5. The compiler is installed separately.
 Marketplace publication is not yet configured.

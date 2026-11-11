@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Discover the compiler in a source checkout when opening an example alone or a nested folder, before falling back to PATH.
+
 ## 0.2.0
 
 - Run, build, check, and emit commands using process tasks.

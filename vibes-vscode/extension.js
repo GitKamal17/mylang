@@ -13,6 +13,20 @@ function compilerPath(document) {
     const local = path.join(folder.uri.fsPath, 'mylang');
     try { fs.accessSync(local, fs.constants.X_OK); return local; } catch (_) { /* Try PATH. */ }
   }
+  // A source file may be opened alone, or with examples/ as the workspace.
+  // Recognize a compiler source checkout before falling back to an older PATH install.
+  let directory = path.dirname(document.uri.fsPath);
+  while (true) {
+    const local = path.join(directory, 'mylang');
+    if (fs.existsSync(path.join(directory, 'src', 'main.c')) &&
+        fs.existsSync(path.join(directory, 'Makefile')) &&
+        fs.existsSync(path.join(directory, 'VERSION'))) {
+      try { fs.accessSync(local, fs.constants.X_OK); return local; } catch (_) { /* Try parent. */ }
+    }
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
   return 'mylang';
 }
 
