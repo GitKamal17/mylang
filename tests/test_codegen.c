@@ -64,6 +64,7 @@ static char *parse_and_codegen(const char *source)
     lexer_init(&lexer, source);
     parser_init(&parser, &lexer, ".");
     program_t *prog = parse_program(&parser);
+    parser_free_imports(&parser);
     if (parser.had_error) { ast_destroy_program(prog); return NULL; }
     codegen_result_t cr = codegen_emit(prog);
     ast_destroy_program(prog);

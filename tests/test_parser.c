@@ -81,7 +81,9 @@ static program_t *parse_string(const char *source)
     parser_t parser;
     lexer_init(&lexer, source);
     parser_init(&parser, &lexer, ".");
-    return parse_program(&parser);
+    program_t *prog = parse_program(&parser);
+    parser_free_imports(&parser);
+    return prog;
 }
 
 static void test_empty_program(void)
